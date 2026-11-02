@@ -78,6 +78,189 @@ def load_mfa_lexicon():
         ]
     return lexicon
 
+LEXICON_OVERRIDES = {
+    "savio": ["s", "a", "ʋ", "i", "oː"],
+    "shaju": ["ʃ", "a", "dʒ", "uː"],
+    "antidisestablishmentarianism": [
+        "a", "n", "ʈ", "i", "ɖ", "ɪ", "s", "ɪ", "s", "ʈ", "a", "b", "l", "ɪ", "ʃ",
+        "m", "ɛ", "n", "ʈ", "ɛː", "ɹ", "i", "ə", "n", "ɪ", "z", "ə", "m"
+    ],
+    "fastspeech": ["f", "aː", "s", "ʈ", "s", "p", "iː", "tʃ"],
+    "vocoder": ["ʋ", "oː", "k", "oː", "ɖ", "ə"],
+    "hifigan": ["h", "aj", "f", "aj", "ɡ", "a", "n"],
+    "synthesize": ["s", "ɪ", "n", "t̪", "ə", "s", "aj", "z"],
+    "synthesizer": ["s", "ɪ", "n", "t̪", "ə", "s", "aj", "z", "ə"],
+    "synthesizing": ["s", "ɪ", "n", "t̪", "ə", "s", "aj", "z", "ɪ", "ŋ"],
+    "kaggle": ["k", "a", "ɡ", "ə", "l"],
+    "pytorch": ["p", "aj", "ʈ", "ɒː", "tʃ"],
+    "github": ["ɡ", "ɪ", "ʈ", "h", "ə", "b"],
+}
+
+def is_acronym(tok):
+    """
+    Detect whether a token is an acronym/initialism that should be spelled letter-by-letter.
+    """
+    if re.match(r"^([a-zA-Z]\.)+$", tok):
+        return True
+    if tok.isupper() and len(tok) >= 2 and len(tok) <= 5:
+        if not any(v in tok for v in "AEIOU") or tok in ["USA", "UK", "IIT", "AI", "ASR", "API", "CPU", "GPU", "RAM", "ROM", "ID", "TTS"]:
+            return True
+    return False
+
+def graphemes_to_mfa_phones(word):
+    """
+    Phonetic rule-based G2P converting English/Indian English graphemes to MFA IPA phones.
+    Ensures OOV words are pronounced smoothly as words, NEVER spelled letter-by-letter.
+    """
+    w = word.lower()
+    i = 0
+    n = len(w)
+    phones = []
+    
+    multigraphs = {
+        "tion": ["ʃ", "ə", "n"],
+        "sion": ["ʒ", "ə", "n"],
+        "cian": ["ʃ", "ə", "n"],
+        "tch": ["tʃ"],
+        "dge": ["dʒ"],
+        "igh": ["aj"],
+    }
+    
+    digraphs = {
+        "sh": ["ʃ"],
+        "ch": ["tʃ"],
+        "th": ["t̪"],
+        "ph": ["f"],
+        "wh": ["ʋ"],
+        "ck": ["k"],
+        "ng": ["ŋ"],
+        "qu": ["k", "ʋ"],
+        "ee": ["iː"],
+        "ea": ["iː"],
+        "oo": ["uː"],
+        "ai": ["eː"],
+        "ay": ["eː"],
+        "oi": ["ɔj"],
+        "oy": ["ɔj"],
+        "ou": ["aw"],
+        "ow": ["aw"],
+        "au": ["ɒː"],
+        "aw": ["ɒː"],
+        "ar": ["ɑː", "ɹ"],
+        "er": ["ɜː"],
+        "ir": ["ɜː"],
+        "ur": ["ɜː"],
+        "or": ["ɒː", "ɹ"],
+    }
+    
+    singles = {
+        "a": ["a"], "b": ["b"], "c": ["k"], "d": ["ɖ"], "e": ["ɛ"],
+        "f": ["f"], "g": ["ɡ"], "h": ["h"], "i": ["ɪ"], "j": ["dʒ"],
+        "k": ["k"], "l": ["l"], "m": ["m"], "n": ["n"], "o": ["oː"],
+        "p": ["p"], "q": ["k"], "r": ["ɹ"], "s": ["s"], "t": ["ʈ"],
+        "u": ["ʊ"], "v": ["ʋ"], "w": ["ʋ"], "x": ["k", "s"], "y": ["j"],
+        "z": ["z"]
+    }
+    
+    while i < n:
+        # 1. Multi-letter patterns
+        matched = False
+        for mg, p_seq in multigraphs.items():
+            if w.startswith(mg, i):
+                phones.extend(p_seq)
+                i += len(mg)
+                matched = True
+                break
+        if matched:
+            continue
+            
+        # 2. Digraphs
+        if i + 1 < n and w[i:i+2] in digraphs:
+            phones.extend(digraphs[w[i:i+2]])
+            i += 2
+        # 3. Double consonants -> single phone
+        elif i + 1 < n and w[i] == w[i+1] and w[i] in singles and w[i] not in "aeiou":
+            phones.extend(singles[w[i]])
+            i += 2
+        # 4. Single letters with contextual rules
+        elif w[i] in singles:
+            if w[i] == "c" and i + 1 < n and w[i+1] in "eiy":
+                phones.append("s")
+            elif w[i] == "g" and i + 1 < n and w[i+1] in "eiy":
+                phones.append("dʒ")
+            elif w[i] == "e" and i == n - 1 and len(phones) > 1:
+                # Silent final 'e'
+                pass
+            elif w[i] == "y" and i > 0:
+                phones.append("i")
+            else:
+                phones.extend(singles[w[i]])
+            i += 1
+        else:
+            i += 1
+            
+    return phones if phones else ["ə"]
+
+def resolve_word(word_token, lexicon):
+    """
+    Resolves a word token into MFA phonemes:
+      1. Checked against explicit overrides.
+      2. If an acronym, spelled out cleanly.
+      3. Looked up directly in the MFA dictionary.
+      4. Morphological decomposition (suffixes: -ing, -ed, -s, -ly).
+      5. Compound word decomposition.
+      6. Phonetic rule-based G2P (smooth natural word pronunciation, NEVER letter-by-letter).
+    """
+    w_lower = word_token.lower()
+    
+    # 1. Explicit domain overrides
+    if w_lower in LEXICON_OVERRIDES:
+        return LEXICON_OVERRIDES[w_lower]
+        
+    # 2. Acronyms (spelled out letter by letter)
+    if is_acronym(word_token):
+        clean_letters = [c.lower() for c in word_token if c.isalpha()]
+        p_seq = []
+        for c in clean_letters:
+            if c in lexicon:
+                p_seq.extend(lexicon[c])
+            else:
+                p_seq.append(c)
+        return p_seq
+        
+    # 3. Exact dictionary match
+    if w_lower in lexicon:
+        return lexicon[w_lower]
+        
+    # 4. Suffix / Morphological decomposition
+    if w_lower.endswith("ing"):
+        stem = w_lower[:-3]
+        if stem in lexicon:
+            return lexicon[stem] + ["ɪ", "ŋ"]
+        if stem + "e" in lexicon:
+            return lexicon[stem + "e"] + ["ɪ", "ŋ"]
+    if w_lower.endswith("ed"):
+        stem = w_lower[:-2]
+        if stem in lexicon:
+            return lexicon[stem] + ["ɖ"]
+    if w_lower.endswith("s") and len(w_lower) > 2:
+        stem = w_lower[:-1]
+        if stem in lexicon:
+            return lexicon[stem] + ["s"]
+    if w_lower.endswith("ly") and len(w_lower) > 3:
+        stem = w_lower[:-2]
+        if stem in lexicon:
+            return lexicon[stem] + ["l", "i"]
+            
+    # 5. Compound words (e.g. fastspeech -> fast + speech)
+    for k in range(3, len(w_lower) - 2):
+        l, r = w_lower[:k], w_lower[k:]
+        if l in lexicon and r in lexicon:
+            return lexicon[l] + lexicon[r]
+            
+    # 6. Fallback Rule-based G2P (pronounce phonetically, NEVER spell letter by letter!)
+    return graphemes_to_mfa_phones(w_lower)
+
 def text_to_phonemes(text, lexicon, protected_words=None, enable_selective_pause=False):
     if protected_words is None:
         protected_words = DEFAULT_PROTECTED_WORDS
@@ -93,14 +276,7 @@ def text_to_phonemes(text, lexicon, protected_words=None, enable_selective_pause
             if enable_selective_pause and w_lower in protected_words:
                 if phone_list and phone_list[-1] != "@sp":
                     phone_list.append("@sp")
-            if w_lower in lexicon:
-                phone_list.extend(lexicon[w_lower])
-            else:
-                for ch in w_lower:
-                    if ch in lexicon:
-                        phone_list.extend(lexicon[ch])
-                    else:
-                        phone_list.append(ch)
+            phone_list.extend(resolve_word(tok, lexicon))
                         
     return "{" + " ".join(phone_list) + "}"
 
