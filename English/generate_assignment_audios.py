@@ -25,6 +25,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
+import argparse
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -39,7 +40,15 @@ if PKG_DIR not in sys.path:
 from model import FastSpeech2
 import hifigan
 from utils.model import vocoder_infer, get_vocoder
+from utils.tools import get_mask_from_lengths
 from text import text_to_sequence
+
+# Vowel taxonomy for selective minimum duration floor
+VOWELS = {
+    'a', 'aj', 'aw', 'aː', 'e', 'ej', 'eː', 'i', 'iː', 'o', 'ow', 'oː', 
+    'u', 'uː', 'æ', 'ɐ', 'ɑ', 'ɑː', 'ɒ', 'ɒː', 'ɔ', 'ɔj', 'ə', 'əw', 
+    'ɚ', 'ɛ', 'ɛː', 'ɜ', 'ɜː', 'ɝ', 'ɪ', 'ʉ', 'ʉː', 'ʊ'
+}
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
@@ -79,14 +88,15 @@ print(f"Stats: Pitch μ={pitch_mean:.2f} σ={pitch_std:.2f} | Energy μ={energy_
 
 # ── Output directories ──────────────────────────────────────────────────────
 RESULTS_DIR      = os.path.join(BASE_DIR, "Results", "English")
-AUDIO_DIR        = os.path.join(RESULTS_DIR, "test_generated_audios")
+AUDIO_DIR_1      = os.path.join(RESULTS_DIR, "test_generated_audios")
+AUDIO_DIR_2      = os.path.join(RESULTS_DIR, "generated_audios")
 PLOT_DIR         = os.path.join(RESULTS_DIR, "variance_adaptor_plots")
 PLOT_DUR_DIR     = os.path.join(PLOT_DIR, "duration")
 PLOT_PITCH_DIR   = os.path.join(PLOT_DIR, "pitch")
 PLOT_ENERGY_DIR  = os.path.join(PLOT_DIR, "energy")
 PLOT_COMB_DIR    = os.path.join(PLOT_DIR, "combined")
 
-for d in [AUDIO_DIR, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR, PLOT_COMB_DIR]:
+for d in [AUDIO_DIR_1, AUDIO_DIR_2, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR, PLOT_COMB_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # ── Load FastSpeech 2 model ─────────────────────────────────────────────────
@@ -191,15 +201,27 @@ test_sentences = {
             "The meeting will start at 10:45 AM on 12 November 2026, "
             "so andaroo should arrive on time."
         ),
-        # Pauses only at comma boundary and sentence end
+        # Canonical clean phonemes without noisy palatal/rhotic vibration artifacts
         "phonemes": (
-            "{d̪ ə mʲ iː ʈʲ ɪ n ʋ ɪ l s ʈ ɑː ʈ a ʈ ʈ ɛ n f ɒː ʈʲ i f aj ʋ "
-            "eː ɛ m ɒ n ʈʷ ɛ l ʋ n ə ʋ ɛ m b ə ɾ ʈʷ ɛ n ʈʲ i ʈʷ ɛ n ʈʲ i s ɪ k s @sp "
-            "s oː a n d̪ ə ɾ uː ʃ ʊ ɖ ə ɾ aj ʋ ɒ n ʈ aj m}"
+            "{d̪ ə m iː ʈ ɪ ŋ ʋ ɪ l s ʈ ɑː ʈ a ʈ ʈ ɛ n f ɒː ʈ i f aj ʋ "
+            "eː ɛ m ɒ n t̪ ʋ ɛ l ʋ n ə ʋ ɛ m b ə ɹ t̪ ʋ ɛ n ʈ i t̪ ʋ ɛ n ʈ i s ɪ k s @sp "
+            "s oː a n d̪ a ɹ uː ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
         ),
         "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed. Pause at comma only.",
     },
 }
+
+parser = argparse.ArgumentParser(description="English FastSpeech 2 — Assignment Test Sentence Synthesis")
+parser.add_argument("--d_control", type=float, default=1.25, help="Duration control factor (default: 1.25 for calibrated clarity)")
+parser.add_argument(
+    "--mode",
+    type=str,
+    default="duration_improved",
+    choices=["baseline", "duration_improved"],
+    help="Duration regulation mode: 'duration_improved' (default, calibrated vowel-protected) or 'baseline'",
+)
+cli_args, _ = parser.parse_known_args()
+print(f"Mode: {cli_args.mode} | Duration Control: {cli_args.d_control}")
 
 synthesis_results = {}
 
@@ -220,26 +242,56 @@ for sent_id, info in test_sentences.items():
     max_len    = max(txt_lens).item()
 
     with torch.no_grad():
-        output = model(
-            spk_tensor, txt_tensor, txt_lens, max_len,
-            p_control=1.0, e_control=1.0, d_control=1.0,
-        )
+        src_mask = get_mask_from_lengths(txt_lens, max_len)
+        output = model.encoder(txt_tensor, src_mask)
+        if model.speaker_emb is not None:
+            output = output + model.speaker_emb(spk_tensor).unsqueeze(1).expand(-1, max_len, -1)
 
-        mel_predicted  = output[1].transpose(1, 2)
-        p_pred_norm    = output[2][0].cpu().numpy()
-        e_pred_norm    = output[3][0].cpu().numpy()
-        log_d_pred     = output[4][0].cpu().numpy()
-        d_rounded      = output[5][0].cpu().numpy()
-        mel_len        = output[9][0].item()
+        log_d = model.variance_adaptor.duration_predictor(output, src_mask)
+        d_raw = torch.clamp(torch.exp(log_d) - 1, min=0).squeeze(0)
 
-        lengths = output[9] * hop_length
+        if cli_args.mode == "baseline":
+            d_base = torch.round(d_raw)
+            d_scaled = torch.clamp(torch.round(d_base * cli_args.d_control), min=0)
+        else:
+            # Phase 4 calibrated duration regulation + selective vowel nucleus protection
+            d_scaled = torch.round(d_raw * cli_args.d_control)
+            for idx, tok in enumerate(tokens):
+                if tok in VOWELS and d_scaled[idx] < 2.0:
+                    d_scaled[idx] = 2.0
+
+        d_scaled_batch = d_scaled.unsqueeze(0)
+
+        # Pitch and energy
+        p_pred, pitch_emb = model.variance_adaptor.get_pitch_embedding(output, None, src_mask, 1.0)
+        output = output + pitch_emb
+        e_pred, energy_emb = model.variance_adaptor.get_energy_embedding(output, None, src_mask, 1.0)
+        output = output + energy_emb
+
+        # Length Regulation & Decoder
+        output, mel_len_t = model.variance_adaptor.length_regulator(output, d_scaled_batch, None)
+        mel_mask = get_mask_from_lengths(mel_len_t)
+        mel_output, mel_mask = model.decoder(output, mel_mask)
+        mel_output = model.mel_linear(mel_output)
+        postnet_output = model.postnet(mel_output) + mel_output
+        mel_predicted = postnet_output.transpose(1, 2)
+
+        p_pred_norm    = p_pred[0].cpu().numpy()
+        e_pred_norm    = e_pred[0].cpu().numpy()
+        log_d_pred     = log_d[0].cpu().numpy()
+        d_rounded      = d_scaled.cpu().numpy()
+        mel_len        = mel_len_t[0].item()
+
+        lengths = mel_len_t * hop_length
         wavs    = vocoder_infer(mel_predicted, vocoder, model_config, preprocess_config, lengths=lengths)
         wav     = wavs[0]
 
-    wav_path   = os.path.join(AUDIO_DIR, f"{sent_id}.wav")
+    wav_path_1 = os.path.join(AUDIO_DIR_1, f"{sent_id}.wav")
+    wav_path_2 = os.path.join(AUDIO_DIR_2, f"{sent_id}.wav")
     audio_dur  = len(wav) / sampling_rate
-    wavfile.write(wav_path, sampling_rate, wav)
-    print(f"  Saved: {wav_path}  ({audio_dur:.2f} s, {mel_len} mel frames)")
+    wavfile.write(wav_path_1, sampling_rate, wav)
+    wavfile.write(wav_path_2, sampling_rate, wav)
+    print(f"  Saved: {wav_path_1} and {wav_path_2} ({audio_dur:.2f} s, {mel_len} mel frames)")
 
     # Denormalise pitch and energy
     pitch_hz   = p_pred_norm * pitch_std  + pitch_mean
@@ -314,6 +366,7 @@ with open(summary_path, "w", encoding="utf-8") as f:
     json.dump(synthesis_results, f, indent=2, ensure_ascii=False)
 
 print(f"\n{'='*56}")
-print(f"Audio files  → {AUDIO_DIR}")
+print(f"Audio files  → {AUDIO_DIR_1} and {AUDIO_DIR_2}")
 print(f"Plots        → {PLOT_DIR}")
 print(f"JSON summary → {summary_path}")
+print("English Assignment Synthesis completed successfully!")

@@ -71,10 +71,13 @@ VISARGA = '\u0c03'
 
 def telugu_to_tokens(text):
     text = unicodedata.normalize('NFC', text)
-    words = re.split(r'(\s+)', text)
+    words = re.split(r'(\s+|[.,!?;])', text)
     all_tokens = []
     for w in words:
         if not w:
+            continue
+        if w in [",", ";", ".", "!", "?"]:
+            all_tokens.append('@sp')
             continue
         if re.match(r'^\s+$', w):
             if len(w) > 1:
