@@ -226,45 +226,52 @@ Both corpora underwent an identical, automated multi-stage acoustic conditioning
 
 ## 4. Google Drive Model Weights Download
 
-Due to GitHub's 100 MB standard file upload limit, all pre-trained FastSpeech 2 checkpoints and vocoder weights are hosted on Google Drive:
+Due to GitHub's 100 MB standard file upload limit, all pre-trained FastSpeech 2 checkpoints, vocoder weights, and multi-phase training logs are hosted on Google Drive:
 
 🔗 **[Google Drive Shared Model Folder](https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing)**
 
 ### Available Files in Google Drive
 ```text
-I:\My Drive\TTS/
+Google Drive: TTS/
 ├── English/
-│   ├── latest_checkpoint.pth         # 418,747,163 bytes (399.35 MB) [Step 100,000 | Epoch 468]
-│   ├── best_model.pth                # 418,739,397 bytes (399.34 MB) [Step  61,000 | Epoch 285]
-│   ├── English_All_Phases_Logs.zip   #  73,207,678 bytes ( 69.82 MB) [Complete 100k Logs & Events]
-│   └── generator_universal.pth.tar   #  55,788,858 bytes ( 53.20 MB)
+│   ├── best_model.pth                # 418,739,397 bytes (399.34 MB) [Step  61,000 | Rank 1 | Val Loss: 2.5855]
+│   ├── latest_checkpoint.pth         # 418,747,163 bytes (399.35 MB) [Step 100,000 | Epoch 468 | Val Loss: 2.6090]
+│   ├── best_step_61000.pth           # 418,739,397 bytes (399.34 MB) [Step  61,000 | Rank 1 Snapshot]
+│   ├── best_step_66000.pth           # 418,739,397 bytes (399.34 MB) [Step  66,000 | Rank 2 | Val Loss: 2.5892]
+│   ├── best_step_65000.pth           # 418,739,397 bytes (399.34 MB) [Step  65,000 | Rank 3 | Val Loss: 2.5899]
+│   ├── generator_universal.pth.tar   #  55,788,858 bytes ( 53.20 MB) [HiFi-GAN 16 kHz Universal Vocoder]
+│   └── English_All_Phases_Logs.zip   #  73,207,678 bytes ( 69.82 MB) [Complete 100k TensorBoard Events & Logs]
 └── Telugu/
-    ├── latest_checkpoint.pth         # 419,457,819 bytes (400.02 MB) [Step 100,000 | Epoch 714]
-    ├── best_model.pth                # 419,450,053 bytes (400.02 MB) [Step  74,000 | Epoch 528]
-    ├── best_step_64000.pth           # 419,450,053 bytes (400.02 MB) [Step  64,000 | Rank 2]
-    ├── best_step_74000.pth           # 419,450,053 bytes (400.02 MB) [Step  74,000 | Rank 1]
-    ├── best_step_78000.pth           # 419,450,053 bytes (400.02 MB) [Step  78,000 | Rank 3]
-    ├── Telugu_All_Phases_Logs.zip    #  56,073,051 bytes ( 53.48 MB) [Complete 100k Logs & Events]
-    ├── Telugu_Phase1_Results.zip     #   3,069,034 bytes (  2.93 MB) [Archived Phase 1 Results]
-    └── generator_universal.pth.tar   #  55,788,858 bytes ( 53.20 MB)
+    ├── best_model.pth                # 419,450,053 bytes (400.02 MB) [Step  74,000 | Rank 1 | Val Loss: 2.1457]
+    ├── latest_checkpoint.pth         # 419,457,819 bytes (400.02 MB) [Step 100,000 | Epoch 714 | Val Loss: 2.1661]
+    ├── best_step_74000.pth           # 419,450,053 bytes (400.02 MB) [Step  74,000 | Rank 1 Snapshot]
+    ├── best_step_64000.pth           # 419,450,053 bytes (400.02 MB) [Step  64,000 | Rank 2 | Val Loss: 2.1462]
+    ├── best_step_78000.pth           # 419,450,053 bytes (400.02 MB) [Step  78,000 | Rank 3 | Val Loss: 2.1477]
+    ├── generator_universal.pth.tar   #  55,788,858 bytes ( 53.20 MB) [HiFi-GAN 16 kHz Universal Vocoder]
+    ├── Telugu_All_Phases_Logs.zip    #  56,073,051 bytes ( 53.48 MB) [Complete 100k TensorBoard Events & Logs]
+    └── Telugu_Phase1_Results.zip     #   3,069,034 bytes (  2.93 MB) [Archived Phase 1 Evaluation Results]
 ```
 
 ### File Placement Instructions
 
-After downloading from the shared folder, place each file into its designated directory:
+After downloading from the shared Google Drive folder, place the files into their respective repository directories:
 
-| Downloaded File | Target Repository Path | Role |
+| Downloaded File | Target Repository Path | Role & Checkpoint Details |
 | :--- | :--- | :--- |
-| `English/latest_checkpoint.pth` | `English/checkpoints/latest_checkpoint.pth` | **Final Completed Checkpoint**: Full model weights, Adam optimizer state, step counter (**Step 100,000 \| Epoch 468 \| Loss: 0.7818 \| Val Loss: 2.6288**). |
-| `English/best_model.pth` | `English/checkpoints/best_model.pth` | **Best Inference Model**: Rank 1 overall validation model (**Step 61,000 \| Epoch 285 \| Val Loss: 2.5855**) for high-fidelity speech synthesis. |
-| `English/generator_universal.pth.tar` | `English/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (also copy to `English/train/hifigan/`). |
-| `Telugu/latest_checkpoint.pth` | `Telugu/checkpoints/latest_checkpoint.pth` | **Final Completed Checkpoint**: Full model weights, Adam optimizer state, step counter (**Step 100,000 \| Epoch 714 \| Loss: 0.5841 \| Val Loss: 2.1661**). |
-| `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | **Best Inference Model**: Rank 1 Phase 2 validation model (**Step 74,000 \| Epoch 528 \| Val Loss: 2.1457**) for speech synthesis. |
-| `Telugu/generator_universal.pth.tar` | `Telugu/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (also copy to `Telugu/train/hifigan/`). |
+| `English/best_model.pth` | `English/checkpoints/best_model.pth` | **Best English Model**: Rank 1 validation checkpoint (**Step 61,000 \| Epoch 285 \| Val Loss: 2.5855**), selected for optimal pronunciation, formants, and natural prosody. |
+| `English/latest_checkpoint.pth` | `English/checkpoints/latest_checkpoint.pth` | **Resumable English Training State**: Full 100k state (**Step 100,000 \| Epoch 468 \| Train Loss: 0.7818 \| Val Loss: 2.6090**) with Adam optimizer and scheduler states. |
+| `English/generator_universal.pth.tar` | `English/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (copy also to `English/train/hifigan/` if retraining). |
+| `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | **Best Telugu Model**: Rank 1 Phase 2 validation checkpoint (**Step 74,000 \| Epoch 528 \| Val Loss: 2.1457**), selected for speech synthesis. |
+| `Telugu/latest_checkpoint.pth` | `Telugu/checkpoints/latest_checkpoint.pth` | **Resumable Telugu Training State**: Full 100k state (**Step 100,000 \| Epoch 714 \| Train Loss: 0.5841 \| Val Loss: 2.1661**) with Adam optimizer and scheduler states. |
+| `Telugu/generator_universal.pth.tar` | `Telugu/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (copy also to `Telugu/train/hifigan/` if retraining). |
 
-### Resumable vs. Best Inference Checkpoints
-- **`latest_checkpoint.pth`**: Contains the full PyTorch training state (including `model`, `optimizer`, `step`, `epoch`, `best_loss`, and CUDA random state). It is used to seamlessly continue training where the previous session left off.
-- **`best_model.pth`**: Represents the model weights that achieved the lowest validation loss across the entire training trajectory. It is specifically optimized for inference and evaluation.
+> [!NOTE]
+> **Minimal Setup for Inference**:
+> To run custom or benchmark speech synthesis (`synthesize_custom.py` or `generate_assignment_audios.py`), only **`best_model.pth`** and **`generator_universal.pth.tar`** are needed for each language. All other metadata (`stats.json`, `speakers.json`, `lexicon.dict`, configs) are fully self-contained in the repository.
+
+### Resumable Checkpoints vs. Inference Models
+- **`latest_checkpoint.pth`**: Contains complete PyTorch training state (model weights, Adam optimizer state, learning rate scheduler state, epoch counter, step counter, and CUDA RNG state). Required when continuing training with `--resume`.
+- **`best_model.pth`**: Optimized inference model weights chosen for superior phonetic articulation and clarity. Stripped of optimizer overhead for fast loading and reduced memory footprint.
 
 ---
 
