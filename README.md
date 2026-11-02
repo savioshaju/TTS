@@ -227,9 +227,10 @@ Both corpora underwent an identical, automated multi-stage acoustic conditioning
 ## 4. Google Drive Downloads & File Placement (Before Running Tests)
 
 > [!IMPORTANT]
-> **Checkpoints & Vocoders Required Before Running Tests**:
-> Due to GitHub's 100 MB per-file upload limit, the trained model checkpoints (`*.pth`) and neural vocoders (`*.pth.tar`) are excluded from Git and hosted on Google Drive.
-> **You must download and place these files before running speech synthesis, benchmark generation, or testing.**
+> **FastSpeech 2 Checkpoints Required Before Running Tests**:
+> Due to GitHub's 100 MB per-file upload limit, the large FastSpeech 2 model checkpoints (`best_model.pth`, ~400 MB each) are hosted on Google Drive.
+> **The HiFi-GAN neural vocoders (`generator_universal.pth.tar`) and all phonetic metadata are already pre-bundled in Git upon cloning.**
+> You only need to download the **2 FastSpeech 2 checkpoints** from Google Drive before running speech synthesis or testing.
 
 🔗 **[Google Drive Shared Model Folder](https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing)**
 
@@ -237,14 +238,14 @@ Both corpora underwent an identical, automated multi-stage acoustic conditioning
 
 ### 4.1. Quick Setup Checklist: Files Needed to Run Tests & Synthesis
 
-To run custom text synthesis or generate assignment test sentences, download **only 4 files** from Google Drive and copy them to the following local paths:
+To run custom text synthesis or generate assignment test sentences, download **only 2 checkpoint files** from Google Drive and copy them to the following local paths:
 
 | # | File in Google Drive | Copy To Local Repository Path | File Size | Role |
 | :---: | :--- | :--- | :---: | :--- |
 | **1** | `English/best_model.pth` | `English/checkpoints/best_model.pth` | ~399 MB | Trained English FastSpeech 2 Model (Step 61,000) |
-| **2** | `English/generator_universal.pth.tar` | `English/inference/hifigan/generator_universal.pth.tar` | ~53 MB | HiFi-GAN 16 kHz Universal Vocoder for English |
-| **3** | `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | ~400 MB | Trained Telugu FastSpeech 2 Model (Step 74,000) |
-| **4** | `Telugu/generator_universal.pth.tar` | `Telugu/inference/hifigan/generator_universal.pth.tar` | ~53 MB | HiFi-GAN 16 kHz Universal Vocoder for Telugu |
+| **2** | `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | ~400 MB | Trained Telugu FastSpeech 2 Model (Step 74,000) |
+
+*(Note: The HiFi-GAN 16 kHz universal vocoders are already pre-included at `English/inference/hifigan/generator_universal.pth.tar` and `Telugu/inference/hifigan/generator_universal.pth.tar` directly in the repository).*
 
 #### Visual Directory Layout After Placement:
 ```text
@@ -254,31 +255,31 @@ TTS/
 │   │   └── best_model.pth                     <-- [PLACE FILE 1 HERE]
 │   └── inference/
 │       └── hifigan/
-│           └── generator_universal.pth.tar    <-- [PLACE FILE 2 HERE]
+│           └── generator_universal.pth.tar    <-- [ALREADY INCLUDED IN GIT]
 └── Telugu/
     ├── checkpoints/
-    │   └── best_model.pth                     <-- [PLACE FILE 3 HERE]
+    │   └── best_model.pth                     <-- [PLACE FILE 2 HERE]
     └── inference/
         └── hifigan/
-            └── generator_universal.pth.tar    <-- [PLACE FILE 4 HERE]
+            └── generator_universal.pth.tar    <-- [ALREADY INCLUDED IN GIT]
 ```
 
 > [!TIP]
-> **All Metadata is Already Pre-Included in the Repository**:
-> You do **not** need to generate or download `stats.json`, `speakers.json`, `lexicon.dict`, or config files. They are already committed and tracked in Git. Once you copy the 4 files above into position, speech synthesis and test scripts will execute immediately.
+> **Everything Else is Pre-Included in the Repository**:
+> You do **not** need to download HiFi-GAN vocoders, generate `stats.json`, `speakers.json`, `lexicon.dict`, or configure audio settings. They are all pre-committed and tracked in Git. Once you copy the 2 checkpoint files above into position, speech synthesis and test scripts will execute immediately.
 
 #### Verify File Placement (One-Liner Command)
-Before running synthesis, verify that all 4 files are present:
+Before running synthesis, verify that both model checkpoints and vocoders are present:
 
 **Windows PowerShell:**
 ```powershell
-Test-Path English/checkpoints/best_model.pth, English/inference/hifigan/generator_universal.pth.tar, Telugu/checkpoints/best_model.pth, Telugu/inference/hifigan/generator_universal.pth.tar
+Test-Path English/checkpoints/best_model.pth, Telugu/checkpoints/best_model.pth, English/inference/hifigan/generator_universal.pth.tar, Telugu/inference/hifigan/generator_universal.pth.tar
 ```
 *(Should return `True, True, True, True`)*
 
 **Linux / macOS (Bash):**
 ```bash
-ls -lh English/checkpoints/best_model.pth English/inference/hifigan/generator_universal.pth.tar Telugu/checkpoints/best_model.pth Telugu/inference/hifigan/generator_universal.pth.tar
+ls -lh English/checkpoints/best_model.pth Telugu/checkpoints/best_model.pth English/inference/hifigan/generator_universal.pth.tar Telugu/inference/hifigan/generator_universal.pth.tar
 ```
 
 ---
