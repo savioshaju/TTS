@@ -224,13 +224,80 @@ Both corpora underwent an identical, automated multi-stage acoustic conditioning
 
 ---
 
-## 4. Google Drive Model Weights Download
+## 4. Google Drive Downloads & File Placement (Before Running Tests)
 
-Due to GitHub's 100 MB standard file upload limit, all pre-trained FastSpeech 2 checkpoints, vocoder weights, and multi-phase training logs are hosted on Google Drive:
+> [!IMPORTANT]
+> **Checkpoints & Vocoders Required Before Running Tests**:
+> Due to GitHub's 100 MB per-file upload limit, the trained model checkpoints (`*.pth`) and neural vocoders (`*.pth.tar`) are excluded from Git and hosted on Google Drive.
+> **You must download and place these files before running speech synthesis, benchmark generation, or testing.**
 
 🔗 **[Google Drive Shared Model Folder](https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing)**
 
-### Available Files in Google Drive
+---
+
+### 4.1. Quick Setup Checklist: Files Needed to Run Tests & Synthesis
+
+To run custom text synthesis or generate assignment test sentences, download **only 4 files** from Google Drive and copy them to the following local paths:
+
+| # | File in Google Drive | Copy To Local Repository Path | File Size | Role |
+| :---: | :--- | :--- | :---: | :--- |
+| **1** | `English/best_model.pth` | `English/checkpoints/best_model.pth` | ~399 MB | Trained English FastSpeech 2 Model (Step 61,000) |
+| **2** | `English/generator_universal.pth.tar` | `English/inference/hifigan/generator_universal.pth.tar` | ~53 MB | HiFi-GAN 16 kHz Universal Vocoder for English |
+| **3** | `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | ~400 MB | Trained Telugu FastSpeech 2 Model (Step 74,000) |
+| **4** | `Telugu/generator_universal.pth.tar` | `Telugu/inference/hifigan/generator_universal.pth.tar` | ~53 MB | HiFi-GAN 16 kHz Universal Vocoder for Telugu |
+
+#### Visual Directory Layout After Placement:
+```text
+TTS/
+├── English/
+│   ├── checkpoints/
+│   │   └── best_model.pth                     <-- [PLACE FILE 1 HERE]
+│   └── inference/
+│       └── hifigan/
+│           └── generator_universal.pth.tar    <-- [PLACE FILE 2 HERE]
+└── Telugu/
+    ├── checkpoints/
+    │   └── best_model.pth                     <-- [PLACE FILE 3 HERE]
+    └── inference/
+        └── hifigan/
+            └── generator_universal.pth.tar    <-- [PLACE FILE 4 HERE]
+```
+
+> [!TIP]
+> **All Metadata is Already Pre-Included in the Repository**:
+> You do **not** need to generate or download `stats.json`, `speakers.json`, `lexicon.dict`, or config files. They are already committed and tracked in Git. Once you copy the 4 files above into position, speech synthesis and test scripts will execute immediately.
+
+#### Verify File Placement (One-Liner Command)
+Before running synthesis, verify that all 4 files are present:
+
+**Windows PowerShell:**
+```powershell
+Test-Path English/checkpoints/best_model.pth, English/inference/hifigan/generator_universal.pth.tar, Telugu/checkpoints/best_model.pth, Telugu/inference/hifigan/generator_universal.pth.tar
+```
+*(Should return `True, True, True, True`)*
+
+**Linux / macOS (Bash):**
+```bash
+ls -lh English/checkpoints/best_model.pth English/inference/hifigan/generator_universal.pth.tar Telugu/checkpoints/best_model.pth Telugu/inference/hifigan/generator_universal.pth.tar
+```
+
+---
+
+### 4.2. Additional Files for Resuming Training (Optional)
+
+If you plan to resume or extend the 100,000-step training runs instead of just running inference, download the full training states:
+
+| Downloaded File | Target Repository Path | Role & Details |
+| :--- | :--- | :--- |
+| `English/latest_checkpoint.pth` | `English/checkpoints/latest_checkpoint.pth` | Full English training state (**Step 100,000 \| Epoch 468**) with Adam optimizer & scheduler. |
+| `Telugu/latest_checkpoint.pth` | `Telugu/checkpoints/latest_checkpoint.pth` | Full Telugu training state (**Step 100,000 \| Epoch 714**) with Adam optimizer & scheduler. |
+| `English/English_All_Phases_Logs.zip` | Extract to inspect logs | Complete TensorBoard events and logs across 100,000 steps. |
+| `Telugu/Telugu_All_Phases_Logs.zip` | Extract to inspect logs | Complete TensorBoard events and logs across 100,000 steps. |
+
+---
+
+### 4.3. Complete Google Drive Inventory
+
 ```text
 Google Drive: TTS/
 ├── English/
@@ -251,27 +318,6 @@ Google Drive: TTS/
     ├── Telugu_All_Phases_Logs.zip    #  56,073,051 bytes ( 53.48 MB) [Complete 100k TensorBoard Events & Logs]
     └── Telugu_Phase1_Results.zip     #   3,069,034 bytes (  2.93 MB) [Archived Phase 1 Evaluation Results]
 ```
-
-### File Placement Instructions
-
-After downloading from the shared Google Drive folder, place the files into their respective repository directories:
-
-| Downloaded File | Target Repository Path | Role & Checkpoint Details |
-| :--- | :--- | :--- |
-| `English/best_model.pth` | `English/checkpoints/best_model.pth` | **Best English Model**: Rank 1 validation checkpoint (**Step 61,000 \| Epoch 285 \| Val Loss: 2.5855**), selected for optimal pronunciation, formants, and natural prosody. |
-| `English/latest_checkpoint.pth` | `English/checkpoints/latest_checkpoint.pth` | **Resumable English Training State**: Full 100k state (**Step 100,000 \| Epoch 468 \| Train Loss: 0.7818 \| Val Loss: 2.6090**) with Adam optimizer and scheduler states. |
-| `English/generator_universal.pth.tar` | `English/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (copy also to `English/train/hifigan/` if retraining). |
-| `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | **Best Telugu Model**: Rank 1 Phase 2 validation checkpoint (**Step 74,000 \| Epoch 528 \| Val Loss: 2.1457**), selected for speech synthesis. |
-| `Telugu/latest_checkpoint.pth` | `Telugu/checkpoints/latest_checkpoint.pth` | **Resumable Telugu Training State**: Full 100k state (**Step 100,000 \| Epoch 714 \| Train Loss: 0.5841 \| Val Loss: 2.1661**) with Adam optimizer and scheduler states. |
-| `Telugu/generator_universal.pth.tar` | `Telugu/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (copy also to `Telugu/train/hifigan/` if retraining). |
-
-> [!NOTE]
-> **Minimal Setup for Inference**:
-> To run custom or benchmark speech synthesis (`synthesize_custom.py` or `generate_assignment_audios.py`), only **`best_model.pth`** and **`generator_universal.pth.tar`** are needed for each language. All other metadata (`stats.json`, `speakers.json`, `lexicon.dict`, configs) are fully self-contained in the repository.
-
-### Resumable Checkpoints vs. Inference Models
-- **`latest_checkpoint.pth`**: Contains complete PyTorch training state (model weights, Adam optimizer state, learning rate scheduler state, epoch counter, step counter, and CUDA RNG state). Required when continuing training with `--resume`.
-- **`best_model.pth`**: Optimized inference model weights chosen for superior phonetic articulation and clarity. Stripped of optimizer overhead for fast loading and reduced memory footprint.
 
 ---
 
