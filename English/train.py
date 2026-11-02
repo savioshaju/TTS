@@ -3,7 +3,7 @@ Multi-Speaker English FastSpeech 2 Training Script for Kaggle and Local Environm
 Includes:
 - Robust Memory Management (RAM & GPU monitoring, gc.collect(), torch.cuda.empty_cache() at boundaries)
 - optimizer.zero_grad(set_to_none=True) for memory deallocation
-- Strict Checkpoint Retention Policy (Top 5 Best Models + 1 Resumable Latest Checkpoint)
+- Strict Checkpoint Retention Policy (Top 3 Best Models + 1 Resumable Latest Checkpoint)
 - Checkpoint Metadata Index (checkpoints_index.json)
 - Pre-save Disk Space Monitoring and Low-Space Safeguards
 - Atomic Checkpoint Saving with Verification before Deletion
@@ -20,6 +20,7 @@ import re
 import shutil
 import json
 import time
+import datetime
 import gc
 import yaml
 import torch
@@ -147,9 +148,12 @@ def save_and_verify_checkpoint(payload, target_path, min_bytes=1000):
         os.remove(temp_path)
         raise ValueError(f"Checkpoint save verification failed: {temp_path} is too small ({sz} bytes).")
 
-    # Integrity verification load
+    # Integrity verification load (mmap=True to avoid heap allocations)
     try:
-        test_load = torch.load(temp_path, map_location="cpu", weights_only=False)
+        try:
+            test_load = torch.load(temp_path, map_location="cpu", weights_only=False, mmap=True)
+        except (TypeError, ValueError):
+            test_load = torch.load(temp_path, map_location="cpu", weights_only=False)
         if "model" not in test_load or "step" not in test_load:
             raise KeyError("Checkpoint missing required 'model' or 'step' key.")
         del test_load
@@ -160,6 +164,13 @@ def save_and_verify_checkpoint(payload, target_path, min_bytes=1000):
 
     # Atomic swap
     os.replace(temp_path, target_path)
+    gc.collect()
+    if sys.platform.startswith("linux"):
+        try:
+            import ctypes
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
     return True
 
 
@@ -170,7 +181,7 @@ def save_and_verify_checkpoint(payload, target_path, min_bytes=1000):
 class CheckpointRetentionManager:
     """
     Strict Checkpoint Retention Manager:
-    - Retains exactly the top 5 best model checkpoints ranked by lowest validation loss.
+    - Retains exactly the top 3 best model checkpoints ranked by lowest validation loss.
     - Retains 1 separate latest resumable checkpoint containing full training state.
     - Maintains an index file: checkpoints_index.json.
     - Pre-verifies new checkpoints before deleting older ones.
@@ -178,7 +189,7 @@ class CheckpointRetentionManager:
     - Preemptively monitors disk space with emergency warnings and safeguards.
     """
 
-    def __init__(self, ckpt_dir, max_best=5):
+    def __init__(self, ckpt_dir, max_best=3):
         self.ckpt_dir = os.path.abspath(ckpt_dir)
         self.max_best = max_best
         self.index_file = os.path.join(self.ckpt_dir, "checkpoints_index.json")
@@ -266,7 +277,7 @@ class CheckpointRetentionManager:
 
     def register_validation_result(self, step, epoch, val_loss, model, optimizer, best_loss):
         """
-        Evaluates whether current validation loss enters top 5 best models.
+        Evaluates whether current validation loss enters top 3 best models.
         If yes, saves best_step_{step}.pth, updates ranking, evicts worst if > 5,
         and ensures best_model.pth points to the global #1 model.
         """
@@ -314,11 +325,11 @@ class CheckpointRetentionManager:
                 if os.path.isfile(evicted_path):
                     try:
                         os.remove(evicted_path)
-                        print(f"[RetentionManager] Evicted 6th best checkpoint: {evicted['filename']} (Loss: {evicted['val_loss']:.4f})")
+                        print(f"[RetentionManager] Evicted 4th best checkpoint: {evicted['filename']} (Loss: {evicted['val_loss']:.4f})")
                     except Exception as e:
                         print(f"[RetentionManager] Warning removing evicted checkpoint {evicted_path}: {e}")
 
-            # Re-assign ranks 1..5
+            # Re-assign ranks 1..max_best
             for rank, item in enumerate(self.best_checkpoints, 1):
                 item["rank"] = rank
 
@@ -379,7 +390,7 @@ class CheckpointRetentionManager:
         - Obsolete step_*.pth or *.pth.tar files not belonging to top 5 or latest.
         - Dangling .tmp files from interrupted writes.
         - Redundant duplicate copies.
-        Guarantees that latest_checkpoint.pth and top 5 best models are never deleted.
+        Guarantees that latest_checkpoint.pth and top 3 best models are never deleted.
         """
         latest_file = os.path.join(self.ckpt_dir, "latest_checkpoint.pth")
         if not os.path.isfile(latest_file):
@@ -593,6 +604,66 @@ def export_final_weights(ckpt_dir, export_dir, vocoder_src=None, config_src=None
 # SECTION 6: CONFIGURATION LOADER
 # ==============================================================================
 
+
+def update_best_model_folder(best_model_dir, ckpt_dir, vocoder_dir, config_src, stats_src, speakers_src, pkg_root):
+    """
+    Directly updates the English_TTS_Best_Model folder with the latest best model weights
+    and all required inference files whenever a new best model is obtained.
+    Explicitly does NOT create or recreate any ZIP archive.
+    """
+    try:
+        os.makedirs(best_model_dir, exist_ok=True)
+        best_model_src = os.path.join(ckpt_dir, "best_model.pth")
+        if not os.path.isfile(best_model_src):
+            b_files = glob.glob(os.path.join(ckpt_dir, "best_step_*.pth"))
+            if b_files:
+                b_files.sort()
+                best_model_src = b_files[0]
+            else:
+                best_model_src = os.path.join(ckpt_dir, "latest_checkpoint.pth")
+
+        if os.path.isfile(best_model_src):
+            shutil.copy2(best_model_src, os.path.join(best_model_dir, "best_model.pth"))
+            os.makedirs(os.path.join(best_model_dir, "checkpoints"), exist_ok=True)
+            shutil.copy2(best_model_src, os.path.join(best_model_dir, "checkpoints", "best_model.pth"))
+
+        if config_src and os.path.isfile(config_src):
+            shutil.copy2(config_src, os.path.join(best_model_dir, "config.yaml"))
+
+        prep_dir = os.path.join(best_model_dir, "preprocessing")
+        os.makedirs(prep_dir, exist_ok=True)
+        if stats_src and os.path.isfile(stats_src):
+            shutil.copy2(stats_src, os.path.join(best_model_dir, "stats.json"))
+            shutil.copy2(stats_src, os.path.join(prep_dir, "stats.json"))
+        if speakers_src and os.path.isfile(speakers_src):
+            shutil.copy2(speakers_src, os.path.join(best_model_dir, "speakers.json"))
+            shutil.copy2(speakers_src, os.path.join(prep_dir, "speakers.json"))
+
+        # HiFi-GAN Vocoder
+        if os.path.isdir(vocoder_dir):
+            shutil.copytree(vocoder_dir, os.path.join(best_model_dir, "hifigan"), dirs_exist_ok=True)
+        elif os.path.isfile(vocoder_dir):
+            os.makedirs(os.path.join(best_model_dir, "hifigan"), exist_ok=True)
+            shutil.copy2(vocoder_dir, os.path.join(best_model_dir, "hifigan", os.path.basename(vocoder_dir)))
+
+        # Inference scripts
+        for script_name in ["inference.py", "generate_assignment_audios.py", "dataset.py", "evaluate.py"]:
+            sp = os.path.join(pkg_root, script_name)
+            if os.path.isfile(sp):
+                shutil.copy2(sp, os.path.join(best_model_dir, script_name))
+
+        # Core code packages
+        for pkg_name in ["model", "transformer", "text", "utils", "audio"]:
+            src = os.path.join(pkg_root, pkg_name)
+            dst = os.path.join(best_model_dir, pkg_name)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+
+        print(f"[BestModelSync] Directly updated '{best_model_dir}' with latest best model (NO zip archive created).")
+    except Exception as e:
+        print(f"[BestModelSync] Warning: Failed to update best model folder: {e}")
+
+
 def load_configs(args):
     with open(args.config, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -681,6 +752,10 @@ def train(args):
     val_log_path = os.path.join(log_dir, "val")
     result_path = train_config["path"]["result_path"]
 
+    export_dir = args.export_dir
+    if not export_dir:
+        export_dir = os.path.join(os.path.dirname(ckpt_dir.rstrip("/\\")), "English_TTS_Best_Model")
+
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs(train_log_path, exist_ok=True)
     os.makedirs(val_log_path, exist_ok=True)
@@ -707,7 +782,7 @@ def train(args):
     print("=" * 70)
 
     # Initialize Retention Manager
-    retention_mgr = CheckpointRetentionManager(ckpt_dir=ckpt_dir, max_best=5)
+    retention_mgr = CheckpointRetentionManager(ckpt_dir=ckpt_dir, max_best=3)
 
     # Initialize Dataset and DataLoader
     print("[DataLoader] Initializing training dataset...")
@@ -787,12 +862,17 @@ def train(args):
     val_step = train_config["step"]["val_step"]
     grad_acc_step = train_config["optimizer"]["grad_acc_step"]
     grad_clip_thresh = train_config["optimizer"]["grad_clip_thresh"]
+    print("\n" + "=" * 75)
+    print(f"STARTING TRAINING LOOP: Target {total_step:,} Steps | Logging every {log_step} steps")
+    print(f"Validation every {val_step} steps | Checkpoint saving every {save_step} steps")
+    print("=" * 75 + "\n", flush=True)
 
-    outer_bar = tqdm(total=total_step, desc="Overall Progress", initial=step - 1, position=0)
+    last_log_time = time.time()
+    last_log_step = step
+    training_start_time = time.time()
 
     try:
         while step <= total_step:
-            inner_bar = tqdm(total=len(loader), desc=f"Epoch {epoch}", position=1, leave=False)
             for batchs in loader:
                 for batch in batchs:
                     batch = to_device(batch, device)
@@ -811,26 +891,52 @@ def train(args):
                     if step % grad_acc_step == 0:
                         nn.utils.clip_grad_norm_(model.parameters(), grad_clip_thresh)
                         optimizer.step_and_update_lr()
-                        # Use set_to_none=True to free gradient tensors
                         try:
                             optimizer.zero_grad(set_to_none=True)
                         except TypeError:
                             optimizer.zero_grad()
 
-                    # Step logging
+                    # Periodic step logging (strictly at regular intervals)
                     if step % log_step == 0:
+                        now = time.time()
+                        elapsed_interval = now - last_log_time
+                        steps_in_interval = max(1, step - last_log_step)
+                        ms_per_step = (elapsed_interval / steps_in_interval) * 1000.0
+
+                        # Calculate ETA
+                        steps_remaining = total_step - step
+                        eta_seconds = int(steps_remaining * (elapsed_interval / steps_in_interval))
+                        eta_str = str(datetime.timedelta(seconds=eta_seconds))
+
+                        current_lr = optimizer._optimizer.param_groups[0]["lr"]
                         loss_vals = [l.item() for l in losses]
-                        mem_str = format_memory_summary()
+
                         msg = (
-                            f"Step {step}/{total_step}, Total: {loss_vals[0]:.4f}, "
-                            f"Mel: {loss_vals[1]:.4f}, PostNet: {loss_vals[2]:.4f}, "
-                            f"Pitch: {loss_vals[3]:.4f}, Energy: {loss_vals[4]:.4f}, "
-                            f"Duration: {loss_vals[5]:.4f} | {mem_str}"
+                            f"[Step {step:6d}/{total_step:,} | Epoch {epoch:2d}] "
+                            f"Loss: {loss_vals[0]:.4f} (Mel: {loss_vals[1]:.4f}, PostNet: {loss_vals[2]:.4f}, "
+                            f"P: {loss_vals[3]:.4f}, E: {loss_vals[4]:.4f}, D: {loss_vals[5]:.4f}) | "
+                            f"LR: {current_lr:.2e} | {ms_per_step:.1f}ms/step | ETA: {eta_str}"
                         )
+                        print(msg, flush=True)
                         with open(os.path.join(train_log_path, "log.txt"), "a") as f:
                             f.write(msg + "\n")
-                        outer_bar.write(msg)
                         log(train_logger, step, losses=loss_vals)
+
+                        last_log_time = now
+                        last_log_step = step
+                        try:
+                            train_logger.flush()
+                        except Exception:
+                            pass
+                        # Host RAM leak prevention
+                        if step % (log_step * 2) == 0:
+                            gc.collect()
+                            if sys.platform.startswith("linux"):
+                                try:
+                                    import ctypes
+                                    ctypes.CDLL("libc.so.6").malloc_trim(0)
+                                except Exception:
+                                    pass
 
                     # Sample audio/spectrogram synthesis
                     if step % synth_step == 0:
@@ -846,12 +952,12 @@ def train(args):
                             sr = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
                             log(train_logger, audio=wav_reconstruction, sampling_rate=sr, tag=f"Training/step_{step}_{tag}_reconstructed")
                             log(train_logger, audio=wav_prediction, sampling_rate=sr, tag=f"Training/step_{step}_{tag}_synthesized")
-                            # Prevent matplotlib figure memory leak
                             if plt is not None:
                                 plt.close(fig)
-                                plt.close('all')
+                                plt.close("all")
+                            print(f"  -> [Synthesis @ Step {step:,}] Generated audio and spectrogram validation sample.", flush=True)
                         except Exception as e:
-                            outer_bar.write(f"[Warning] Sample synthesis failed at step {step}: {e}")
+                            print(f"  -> [Synthesis Warning @ Step {step}]: {e}", flush=True)
 
                     # Validation
                     if step % val_step == 0:
@@ -859,10 +965,12 @@ def train(args):
                         val_msg, val_losses = evaluate(model, step, configs, val_logger, vocoder)
                         with open(os.path.join(val_log_path, "log.txt"), "a") as f:
                             f.write(val_msg + "\n")
-                        outer_bar.write(val_msg)
 
-                        # Update best model ranking & top 5 checkpoints
                         current_val_loss = val_losses[0]
+                        print("\n" + "-" * 75, flush=True)
+                        print(f"[Validation @ Step {step:,} | Epoch {epoch}] Val Loss: {current_val_loss:.4f} "
+                              f"(Mel: {val_losses[1]:.4f}, PostNet: {val_losses[2]:.4f}, P: {val_losses[3]:.4f}, E: {val_losses[4]:.4f}, D: {val_losses[5]:.4f})", flush=True)
+
                         is_new_global_best = retention_mgr.register_validation_result(
                             step=step,
                             epoch=epoch,
@@ -873,14 +981,39 @@ def train(args):
                         )
                         if is_new_global_best:
                             best_loss = current_val_loss
-                            outer_bar.write(f"*** New global best validation loss: {best_loss:.4f} at step {step:,} ***")
+                            print(f"*** New Global Best Model! Validation Loss: {best_loss:.4f} at Step {step:,} ***", flush=True)
+                            if export_dir:
+                                update_best_model_folder(
+                                    best_model_dir=export_dir,
+                                    ckpt_dir=ckpt_dir,
+                                    vocoder_dir=os.path.join(PACKAGE_ROOT, "hifigan"),
+                                    config_src=args.config if os.path.isfile(args.config) else os.path.join(PACKAGE_ROOT, "config.yaml"),
+                                    stats_src=os.path.join(preprocess_config["path"]["preprocessed_path"], "stats.json"),
+                                    speakers_src=os.path.join(preprocess_config["path"]["preprocessed_path"], "speakers.json"),
+                                    pkg_root=PACKAGE_ROOT,
+                                )
+
+                        top_ckpts = [f"Rank {c.get('rank', i+1)}: Step {c['step']:,} ({c['val_loss']:.4f})" for i, c in enumerate(retention_mgr.best_checkpoints)]
+                        print(f"[RetentionManager] Current Top {len(top_ckpts)} Models: {' | '.join(top_ckpts)}", flush=True)
+                        print("-" * 75 + "\n", flush=True)
 
                         model.train()
-
-                        # Validation boundary memory cleanup
+                        try:
+                            val_logger.flush()
+                            train_logger.flush()
+                        except Exception:
+                            pass
+                        if plt is not None:
+                            plt.close("all")
                         gc.collect()
                         if torch.cuda.is_available():
                             torch.cuda.empty_cache()
+                        if sys.platform.startswith("linux"):
+                            try:
+                                import ctypes
+                                ctypes.CDLL("libc.so.6").malloc_trim(0)
+                            except Exception:
+                                pass
 
                     # Periodic Checkpoint Saving
                     if step % save_step == 0:
@@ -892,18 +1025,29 @@ def train(args):
                             model=model,
                             optimizer=optimizer,
                         )
-                        outer_bar.write(f"Updated latest checkpoint at step {step:,} | Free disk: {get_disk_free_gb(ckpt_dir):.2f} GB")
+                        print(f"  -> [Checkpoint @ Step {step:,}] Saved latest resumable checkpoint (latest_checkpoint.pth) | Free Disk: {get_disk_free_gb(ckpt_dir):.2f} GB", flush=True)
 
                     # Release iteration references
                     del output, losses, total_loss, batch
 
                     if step >= total_step:
-                        print(f"Training completed successfully at step {step:,}.")
+                        total_elapsed = str(datetime.timedelta(seconds=int(time.time() - training_start_time)))
+                        print("\n" + "=" * 75, flush=True)
+                        print(f"Training completed successfully at step {step:,}! Total Elapsed: {total_elapsed}", flush=True)
+                        print("=" * 75 + "\n", flush=True)
+                        if export_dir:
+                            update_best_model_folder(
+                                best_model_dir=export_dir,
+                                ckpt_dir=ckpt_dir,
+                                vocoder_dir=os.path.join(PACKAGE_ROOT, "hifigan"),
+                                config_src=args.config if os.path.isfile(args.config) else os.path.join(PACKAGE_ROOT, "config.yaml"),
+                                stats_src=os.path.join(preprocess_config["path"]["preprocessed_path"], "stats.json"),
+                                speakers_src=os.path.join(preprocess_config["path"]["preprocessed_path"], "speakers.json"),
+                                pkg_root=PACKAGE_ROOT,
+                            )
                         return
 
                     step += 1
-                    outer_bar.update(1)
-                inner_bar.update(1)
 
             # Epoch boundary memory cleanup
             gc.collect()
