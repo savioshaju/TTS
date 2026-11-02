@@ -280,10 +280,10 @@ To synthesize arbitrary custom sentences from the command line:
 #### English Custom Synthesis
 ```bash
 # Synthesize custom English text
-python synthesize_custom.py --text "Hi, I am Savio." --output custom_synthesize/hi_i_am_savio.wav
+python English/synthesize_custom.py --text "Hi, I am Savio." --output custom_synthesize/hi_i_am_savio.wav
 
 # Optional: adjust duration speed (d_control) or speaker
-python synthesize_custom.py --text "Good morning, welcome to our speech synthesis demonstration." --d_control 1.25 --speaker_id 27 --output custom_synthesize/demo_en.wav
+python English/synthesize_custom.py --text "Good morning, welcome to our speech synthesis demonstration." --d_control 1.25 --speaker_id 27 --output custom_synthesize/demo_en.wav
 ```
 
 #### Telugu Custom Synthesis
