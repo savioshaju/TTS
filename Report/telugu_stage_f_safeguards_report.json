@@ -1,0 +1,113 @@
+{
+  "stage": "Stage F: Training Safeguards and Final Training Readiness Validation",
+  "timestamp": "2026-11-02 01:34:03",
+  "device": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+  "total_tests": 18,
+  "passed_tests": 18,
+  "overall_status": "READY FOR STAGE G",
+  "test_details": {
+    "test_1_config_loading": {
+      "status": "PASS",
+      "sampling_rate": 16000,
+      "mel_channels": 80,
+      "multi_speaker": true,
+      "total_step": 100000
+    },
+    "test_2_dataset_init": {
+      "status": "PASS",
+      "train_samples": 2248,
+      "val_samples": 445,
+      "train_batches": 141,
+      "val_batches": 56
+    },
+    "test_3_model_init": {
+      "status": "PASS",
+      "parameters": 35441473
+    },
+    "test_4_cuda_exec": {
+      "status": "PASS",
+      "is_cuda": true,
+      "device": "cuda"
+    },
+    "test_5_forward_pass": {
+      "status": "PASS",
+      "mel_shape": [
+        8,
+        800,
+        80
+      ],
+      "postnet_shape": [
+        8,
+        800,
+        80
+      ]
+    },
+    "test_6_loss_calculation": {
+      "status": "PASS",
+      "total_loss": 16.172927856445312,
+      "mel_loss": 5.128909587860107,
+      "postnet_loss": 5.189568996429443,
+      "pitch_loss": 1.359141230583191,
+      "energy_loss": 1.7511805295944214,
+      "duration_loss": 2.7441277503967285
+    },
+    "test_7_backward_pass": {
+      "status": "PASS",
+      "has_gradients": true
+    },
+    "test_8_gradient_clipping": {
+      "status": "PASS",
+      "threshold": 1.0,
+      "pre_clip_norm": 57.66981506347656
+    },
+    "test_9_nan_inf_safeguards": {
+      "status": "PASS",
+      "gradient_finite": true,
+      "nan_detection_operational": true
+    },
+    "test_10_optimizer_scheduler": {
+      "status": "PASS",
+      "current_step": 1,
+      "learning_rate": 2.4705294220065465e-07
+    },
+    "test_11_periodic_checkpoint": {
+      "status": "PASS",
+      "file": "D:\\TEMP\\User\\telugu_stage_f_test__r36_o5v\\step_100.pth",
+      "size_mb": 400.0223741531372
+    },
+    "test_12_best_model": {
+      "status": "PASS",
+      "retained_step": 200,
+      "retained_best_loss": 15.0
+    },
+    "test_13_latest_checkpoint": {
+      "status": "PASS",
+      "step": 300,
+      "has_rng": true
+    },
+    "test_14_checkpoint_restoration": {
+      "status": "PASS",
+      "restored_step": 300,
+      "parameter_equality": true
+    },
+    "test_15_automatic_resume": {
+      "status": "PASS",
+      "next_training_step": 301
+    },
+    "test_16_interruption_recovery": {
+      "status": "PASS",
+      "recovered_step": 305
+    },
+    "test_17_validation_invariance": {
+      "status": "PASS",
+      "val_total_loss": 15.633547459291607,
+      "mel_loss": 5.118871650267183,
+      "parameter_invariance": true
+    },
+    "test_18_structured_logging": {
+      "status": "PASS",
+      "report_path": "Report/telugu_stage_f_safeguards_report.json"
+    }
+  }
+}

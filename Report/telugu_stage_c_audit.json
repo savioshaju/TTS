@@ -1,0 +1,123 @@
+{
+  "total_expected": 2695,
+  "total_found": 2693,
+  "missing_count": 2,
+  "corrupted_count": 0,
+  "boundary_errors": 0,
+  "negative_timestamp_errors": 0,
+  "reverse_interval_errors": 0,
+  "zero_duration_tokens": 0,
+  "confidence": {
+    "overall": {
+      "mean": 0.4724,
+      "std": 0.0393,
+      "median": 0.4793,
+      "min": 0.0255,
+      "max": 0.4996
+    },
+    "female": {
+      "mean": 0.473,
+      "std": 0.0548,
+      "median": 0.4844,
+      "min": 0.0255,
+      "max": 0.4996,
+      "count": 1261
+    },
+    "male": {
+      "mean": 0.4718,
+      "std": 0.0161,
+      "median": 0.4743,
+      "min": 0.359,
+      "max": 0.4994,
+      "count": 1432
+    }
+  },
+  "speech_coverage": {
+    "overall_mean": 0.5905,
+    "female_mean": 0.5614,
+    "male_mean": 0.616
+  },
+  "low_confidence_count": 36,
+  "low_confidence_samples": [
+    {
+      "uid": "indic_te_0_111",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 12.478,
+      "confidence": 0.1368,
+      "word_count": 21
+    },
+    {
+      "uid": "indic_te_0_162",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 6.202,
+      "confidence": 0.1235,
+      "word_count": 12
+    },
+    {
+      "uid": "indic_te_0_180",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 1.187,
+      "confidence": 0.2774,
+      "word_count": 1
+    },
+    {
+      "uid": "indic_te_0_191",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 11.287,
+      "confidence": 0.0545,
+      "word_count": 37
+    },
+    {
+      "uid": "indic_te_0_669",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 2.371,
+      "confidence": 0.3366,
+      "word_count": 2
+    },
+    {
+      "uid": "indic_te_0_913",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 6.504,
+      "confidence": 0.0587,
+      "word_count": 24
+    },
+    {
+      "uid": "indic_te_0_915",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 6.644,
+      "confidence": 0.0401,
+      "word_count": 27
+    },
+    {
+      "uid": "indic_te_0_918",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 9.801,
+      "confidence": 0.2659,
+      "word_count": 10
+    },
+    {
+      "uid": "indic_te_0_919",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 8.408,
+      "confidence": 0.2025,
+      "word_count": 11
+    },
+    {
+      "uid": "indic_te_0_921",
+      "speaker": "telugufemale",
+      "gender": "Female",
+      "duration": 14.492,
+      "confidence": 0.0915,
+      "word_count": 42
+    }
+  ]
+}

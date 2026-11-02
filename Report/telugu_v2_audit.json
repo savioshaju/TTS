@@ -1,0 +1,79 @@
+{
+  "directory": "D:\\Savio Shaju\\TTS\\datasets\\prepared\\telugu_prepared_v2",
+  "strategy": "50/50 Balanced Gender Stratification, Zero Utterance Overlap, Zero Transcript Overlap",
+  "train": {
+    "count": 2250,
+    "hours": 5.0018,
+    "seconds": 18006.58,
+    "mean": 8.0029,
+    "median": 7.912,
+    "min": 1.0291,
+    "max": 14.4918,
+    "std": 3.2718,
+    "sample_rates": {
+      "16000": 1053,
+      "48000": 1197
+    },
+    "channels": {
+      "1": 2250
+    },
+    "bit_depths": {
+      "16": 2250
+    },
+    "speakers": {
+      "telugufemale": {
+        "count": 1053,
+        "hours": 2.5002,
+        "seconds": 9000.58,
+        "mean": 8.5476
+      },
+      "telugumale": {
+        "count": 1197,
+        "hours": 2.5017,
+        "seconds": 9006.0,
+        "mean": 7.5238
+      }
+    }
+  },
+  "val": {
+    "count": 445,
+    "hours": 1.003,
+    "seconds": 3610.81,
+    "mean": 8.1142,
+    "median": 7.976,
+    "min": 1.4467,
+    "max": 14.4,
+    "std": 3.3542,
+    "sample_rates": {
+      "16000": 209,
+      "48000": 236
+    },
+    "channels": {
+      "1": 445
+    },
+    "bit_depths": {
+      "16": 445
+    },
+    "speakers": {
+      "telugufemale": {
+        "count": 209,
+        "hours": 0.5023,
+        "seconds": 1808.4,
+        "mean": 8.6526
+      },
+      "telugumale": {
+        "count": 236,
+        "hours": 0.5007,
+        "seconds": 1802.4,
+        "mean": 7.6373
+      }
+    }
+  },
+  "combined": {
+    "count": 2695,
+    "hours": 6.0048,
+    "seconds": 21617.39,
+    "utterance_overlap": 0,
+    "transcript_overlap": 0
+  }
+}

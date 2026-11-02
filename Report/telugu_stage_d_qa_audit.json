@@ -1,0 +1,94 @@
+{
+  "passed": true,
+  "errors": [],
+  "warnings": [],
+  "file_counts": {
+    "mel": 2693,
+    "pitch": 2693,
+    "energy": 2693,
+    "duration": 2693,
+    "total_npy": 10772
+  },
+  "dimension_check": {
+    "total_audited": 2693,
+    "mismatched_dur_sum": 0,
+    "mismatched_pitch_len": 0,
+    "mismatched_energy_len": 0,
+    "non_finite_mel": 0,
+    "non_finite_pitch": 0,
+    "non_finite_energy": 0,
+    "invalid_durations": 0,
+    "total_mel_frames": 1146615,
+    "total_tokens": 287834
+  },
+  "manifest_check": {
+    "train_count": 2248,
+    "val_count": 445,
+    "total_count": 2693,
+    "leakage_overlap": 0,
+    "excluded_found_in_train": [],
+    "excluded_found_in_val": []
+  },
+  "dataloader_test": {
+    "success": true,
+    "sample_batch_size": 16,
+    "ids_preview": [
+      "indic_te_2_1642",
+      "indic_te_3_591",
+      "indic_te_2_1955",
+      "indic_te_2_830"
+    ],
+    "speakers_preview": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "texts_shape": [
+      16,
+      249
+    ],
+    "mels_shape": [
+      16,
+      839,
+      80
+    ],
+    "pitches_shape": [
+      16,
+      249
+    ],
+    "energies_shape": [
+      16,
+      249
+    ],
+    "durations_shape": [
+      16,
+      249
+    ]
+  },
+  "forward_pass_test": {
+    "success": true,
+    "mel_predictions_shape": [
+      16,
+      839,
+      80
+    ],
+    "postnet_mel_shape": [
+      16,
+      839,
+      80
+    ],
+    "pitch_predictions_shape": [
+      16,
+      249
+    ],
+    "energy_predictions_shape": [
+      16,
+      249
+    ],
+    "log_durations_shape": [
+      16,
+      249
+    ]
+  }
+}

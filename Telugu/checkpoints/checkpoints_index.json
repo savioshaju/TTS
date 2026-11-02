@@ -1,0 +1,31 @@
+{
+  "max_best": 3,
+  "best_checkpoints": [
+    {
+      "step": 30000,
+      "val_loss": 2.1309428332896716,
+      "filename": "best_step_30000.pth",
+      "rank": 1
+    },
+    {
+      "step": 18000,
+      "val_loss": 2.1329193243819677,
+      "filename": "best_step_18000.pth",
+      "rank": 2
+    },
+    {
+      "step": 27000,
+      "val_loss": 2.133136949110567,
+      "filename": "best_step_27000.pth",
+      "rank": 3
+    }
+  ],
+  "latest_checkpoint": {
+    "step": 56000,
+    "epoch": 400,
+    "val_loss": 2.1508796965138295,
+    "best_loss": 2.1309428332896716,
+    "filename": "latest_checkpoint.pth"
+  },
+  "updated_at": "2026-11-02 02:50:25 UTC"
+}

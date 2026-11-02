@@ -1,0 +1,45 @@
+{
+  "elapsed_seconds": 449.12,
+  "sampling_rate": 16000,
+  "hop_length": 256,
+  "filter_length": 1024,
+  "n_mel_channels": 80,
+  "stats": {
+    "pitch": [
+      -2.9186432361602783,
+      8.6141996383667,
+      198.32398706713707,
+      43.189937148941056
+    ],
+    "energy": [
+      -1.5349459648132324,
+      5.431472301483154,
+      54.22740993746025,
+      35.31714640391597
+    ]
+  },
+  "speakers": {
+    "telugufemale": 0,
+    "telugumale": 1
+  },
+  "splits": {
+    "train": {
+      "expected": 2248,
+      "processed": 2248,
+      "failed_count": 0,
+      "failed": [],
+      "total_mel_frames": 953604,
+      "total_active_hours": 4.2382,
+      "total_phoneme_tokens": 239319
+    },
+    "val": {
+      "expected": 445,
+      "processed": 445,
+      "failed_count": 0,
+      "failed": [],
+      "total_mel_frames": 193011,
+      "total_active_hours": 0.8578,
+      "total_phoneme_tokens": 48515
+    }
+  }
+}

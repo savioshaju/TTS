@@ -1,0 +1,94 @@
+# ==============================================================================
+# FASTSPEECH 2 GITHUB .GITIGNORE CONFIGURATION
+# ==============================================================================
+
+# --- Large Model Checkpoints & Vocoder Weights (Hosted on Google Drive) ---
+*.pth
+*.pt
+*.ckpt
+*.tar
+*.pth.tar
+*.tar.gz
+*.zip
+
+# Exception: Keep checkpoint directories, index files, and download guides
+!English/checkpoints/
+!English/checkpoints/checkpoints_index.json
+!English/checkpoints/README.md
+!Telugu/checkpoints/
+!Telugu/checkpoints/checkpoints_index.json
+!Telugu/checkpoints/README.md
+
+# --- Python Bytecode & Cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# --- Virtual Environments & Package Caches ---
+.venv/
+.mfa_env/
+.micromamba_root/
+.pip_cache/
+env/
+venv/
+ENV/
+
+# --- Raw Datasets & Intermediate Preprocessing Features ---
+datasets/
+mfa_root/
+preprocessing/
+preprocessing/English/mfa_input/
+preprocessing/English/mel/
+preprocessing/English/pitch/
+preprocessing/English/energy/
+preprocessing/English/duration/
+preprocessing/Telugu/alignments/
+preprocessing/Telugu/wavs_16k/
+preprocessing/Telugu/mel/
+preprocessing/Telugu/pitch/
+preprocessing/Telugu/energy/
+preprocessing/Telugu/duration/
+
+# --- Local Kaggle Staging, Archive Backups & Temporary Models ---
+kaggle_staging/
+kaggle_staging_backup/
+English_TTS_Best_Model/
+Telugu_TTS_Best_Model/
+best_model/
+generator_universal.pth/
+FastSpeech2-master/
+Ref/
+
+# --- Raw Kaggle Download Dumps (Preserves Results/English and Results/Telugu) ---
+Results/result-englsih/
+Results/results-telugu/
+
+# --- Local Logs & TensorBoard Event Files ---
+*.log
+events.out.tfevents.*
+Telugu/logs/
+Telugu/tensorboard/
+Telugu/test_checkpoints/
+Telugu/training_config/
+English/logs/
+
+# --- LaTeX Intermediate Build Artifacts (Preserves Report/Technical_Report.pdf) ---
+Report/*.aux
+Report/*.log
+Report/*.out
+Report/*.synctex.gz
+Report/*.toc
+Report/*.bbl
+Report/*.blg
+
+# --- Development Tools & Scratch Scripts ---
+tools/
+
+# --- OS & Editor Metadata ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/

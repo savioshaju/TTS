@@ -1,0 +1,31 @@
+{
+  "stage": "Stage C \u2014 Telugu MMS Forced Alignment",
+  "timestamp": "2026-11-01T21:29:22",
+  "total_processed": 2695,
+  "success_count": 2693,
+  "failure_count": 2,
+  "success_rate_percent": 99.93,
+  "elapsed_seconds": 245.5,
+  "confidence_stats": {
+    "overall_mean": 0.4724,
+    "overall_std": 0.0393,
+    "overall_min": 0.0255,
+    "overall_max": 0.4996,
+    "female_mean": 0.473,
+    "female_std": 0.0548,
+    "male_mean": 0.4718,
+    "male_std": 0.0161
+  },
+  "failed_utterances": [
+    {
+      "uid": "indic_te_0_927",
+      "reason": "targets length is too long for CTC. Found log_probs length: 400, targets length: 372, and number of repeats: 64",
+      "text": "\u0c05\u0c26\u0c40 \u0c1a\u0c1f\u0c4d\u0c1f\u0c38\u0c2e\u0c4d\u0c2e\u0c24\u0c02\u0c17\u0c3e\u0c28\u0c47 \u0c1c\u0c30\u0c41\u0c17\u0c41\u0c24\u0c41\u0c28\u0c4d\u0c28\u0c26\u0c3f \u0c05\u0c38\u0c32\u0c41 \u0c38\u0c02\u0c17\u0c24\u0c47\u0c2e\u0c3f\u0c1f\u0c02\u0c1f\u0c47 \u0c2e\u0c38\u0c40\u0c26\u0c41\u0c15\u0c41 \u0c27\u0c28\u0c02"
+    },
+    {
+      "uid": "indic_te_3_0",
+      "reason": "targets length is too long for CTC. Found log_probs length: 140, targets length: 264, and number of repeats: 51",
+      "text": "\u0c38\u0c42\u0c30\u0c4d\u0c2f\u0c41\u0c21\u0c3f \u0c2e\u0c27\u0c4d\u0c2f\u0c30\u0c47\u0c16\u0c15\u0c41 \u0c38\u0c2e\u0c40\u0c2a\u0c02\u0c32\u0c4b \u0c09\u0c02\u0c21\u0c47 \u0c2e\u0c1a\u0c4d\u0c1a, \u0c38\u0c42\u0c30\u0c4d\u0c2f\u0c41\u0c21\u0c3f \u0c27\u0c43\u0c35\u0c3e\u0c32\u0c15\u0c41, \u0c26\u0c17\u0c4d\u0c17"
+    }
+  ]
+}
