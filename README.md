@@ -152,10 +152,16 @@ I:\My Drive\TTS/
 ├── English/
 │   ├── latest_checkpoint.pth         # 418,747,163 bytes (399.35 MB) [Step 100,000 | Epoch 468]
 │   ├── best_model.pth                # 418,739,397 bytes (399.34 MB) [Step  61,000 | Epoch 285]
+│   ├── English_All_Phases_Logs.zip   #  73,207,678 bytes ( 69.82 MB) [Complete 100k Logs & Events]
 │   └── generator_universal.pth.tar   #  55,788,858 bytes ( 53.20 MB)
 └── Telugu/
-    ├── latest_checkpoint.pth         # 419,455,451 bytes (400.02 MB) [Step  56,000 | Epoch 212]
-    ├── best_model.pth                # 419,447,685 bytes (400.02 MB) [Step  30,000 | Epoch 114]
+    ├── latest_checkpoint.pth         # 419,457,819 bytes (400.02 MB) [Step 100,000 | Epoch 714]
+    ├── best_model.pth                # 419,450,053 bytes (400.02 MB) [Step  74,000 | Epoch 528]
+    ├── best_step_64000.pth           # 419,450,053 bytes (400.02 MB) [Step  64,000 | Rank 2]
+    ├── best_step_74000.pth           # 419,450,053 bytes (400.02 MB) [Step  74,000 | Rank 1]
+    ├── best_step_78000.pth           # 419,450,053 bytes (400.02 MB) [Step  78,000 | Rank 3]
+    ├── Telugu_All_Phases_Logs.zip    #  56,073,051 bytes ( 53.48 MB) [Complete 100k Logs & Events]
+    ├── Telugu_Phase1_Results.zip     #   3,069,034 bytes (  2.93 MB) [Archived Phase 1 Results]
     └── generator_universal.pth.tar   #  55,788,858 bytes ( 53.20 MB)
 ```
 
@@ -168,8 +174,8 @@ After downloading from the shared folder, place each file into its designated di
 | `English/latest_checkpoint.pth` | `English/checkpoints/latest_checkpoint.pth` | **Final Completed Checkpoint**: Full model weights, Adam optimizer state, step counter (**Step 100,000 \| Epoch 468 \| Loss: 0.7818 \| Val Loss: 2.6288**). |
 | `English/best_model.pth` | `English/checkpoints/best_model.pth` | **Best Inference Model**: Rank 1 overall validation model (**Step 61,000 \| Epoch 285 \| Val Loss: 2.5855**) for high-fidelity speech synthesis. |
 | `English/generator_universal.pth.tar` | `English/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (also copy to `English/train/hifigan/`). |
-| `Telugu/latest_checkpoint.pth` | `Telugu/checkpoints/latest_checkpoint.pth` | **Resumable Checkpoint**: Full model weights, Adam optimizer state, step counter (Step 56,000) to resume training. |
-| `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | **Best Inference Model**: Top-ranked validation model (Step 30,000, Val Loss: 2.1309) for synthesis. |
+| `Telugu/latest_checkpoint.pth` | `Telugu/checkpoints/latest_checkpoint.pth` | **Final Completed Checkpoint**: Full model weights, Adam optimizer state, step counter (**Step 100,000 \| Epoch 714 \| Loss: 0.5841 \| Val Loss: 2.1661**). |
+| `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | **Best Inference Model**: Rank 1 Phase 2 validation model (**Step 74,000 \| Epoch 528 \| Val Loss: 2.1457**) for speech synthesis. |
 | `Telugu/generator_universal.pth.tar` | `Telugu/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (also copy to `Telugu/train/hifigan/`). |
 
 ### Resumable vs. Best Inference Checkpoints
@@ -303,7 +309,10 @@ python English/inference/generate_assignment_audios.py
   - Full 100k Trajectory: [`Results/English/training_loss.png`](Results/English/training_loss.png) & [`Results/English/validation_loss.png`](Results/English/validation_loss.png)
   - Phase 1 (Steps 100 – 53,700): [`Results/English/phase_1_loss.png`](Results/English/phase_1_loss.png)
   - Phase 2 (Steps 53,100 – 100,000): [`Results/English/phase_2_loss.png`](Results/English/phase_2_loss.png)
-- **Telugu Loss Curves**: [`Results/Telugu/training_loss.png`](Results/Telugu/training_loss.png) & [`Results/Telugu/validation_loss.png`](Results/Telugu/validation_loss.png)
+- **Telugu Loss Curves (100k Steps)**:
+  - Full 100k Trajectory: [`Results/Telugu/training_loss.png`](Results/Telugu/training_loss.png) & [`Results/Telugu/validation_loss.png`](Results/Telugu/validation_loss.png)
+  - Phase 1 (Steps 100 – 56,000): [`Results/Telugu/phase_1_loss.png`](Results/Telugu/phase_1_loss.png)
+  - Phase 2 (Steps 56,100 – 100,000): [`Results/Telugu/phase_2_loss.png`](Results/Telugu/phase_2_loss.png)
 
 ### Formal Technical Report
 A comprehensive academic report detailing mathematical formulations, experimental setup, spectrogram analyses, and comparative findings is available at:

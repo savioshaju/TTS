@@ -1,7 +1,3 @@
-# ==============================================================================
-# FASTSPEECH 2 GITHUB .GITIGNORE CONFIGURATION
-# ==============================================================================
-
 # --- Large Model Checkpoints & Vocoder Weights (Hosted on Google Drive) ---
 *.pth
 *.pt
@@ -96,3 +92,5 @@ Thumbs.db
 # Logs staging and archive
 English_All_Phases_Logs/
 
+Telugu_All_Phases_Logs/
+Phase 2 Telugu/
