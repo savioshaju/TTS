@@ -141,11 +141,23 @@ def main():
         print(f"Derived phonemes: {phone_str}")
 
     # 2. Config & Model
-    cfg_path = os.path.join(BASE_DIR, "Telugu", "config.yaml")
+    cfg_path = os.path.join(SCRIPT_DIR, "config.yaml")
     with open(cfg_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
-    cfg["path"]["preprocessed_path"] = os.path.join(BASE_DIR, "preprocessing", "Telugu")
+    # Locate stats.json directory (self-contained fallback)
+    stats_candidates = [
+        SCRIPT_DIR,
+        os.path.join(SCRIPT_DIR, "inference"),
+        os.path.join(BASE_DIR, "preprocessing", "Telugu"),
+    ]
+    stats_dir = SCRIPT_DIR
+    for d in stats_candidates:
+        if os.path.exists(os.path.join(d, "stats.json")):
+            stats_dir = d
+            break
+
+    cfg["path"]["preprocessed_path"] = stats_dir
     preprocess_config = {
         "dataset": cfg["dataset"],
         "path": cfg["path"],

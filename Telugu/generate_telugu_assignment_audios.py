@@ -23,15 +23,15 @@ from scipy.io import wavfile
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE_DIR = r"D:\Savio Shaju\TTS"
-PKG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inference")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(SCRIPT_DIR)
+PKG_DIR = os.path.join(SCRIPT_DIR, "inference")
 if not os.path.exists(PKG_DIR):
     PKG_DIR = os.path.join(BASE_DIR, "kaggle_staging", "Telugu_FastSpeech2_Kaggle")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
-TELUGU_DIR = os.path.join(BASE_DIR, "Telugu")
-if TELUGU_DIR not in sys.path:
-    sys.path.insert(0, TELUGU_DIR)
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
 from model import FastSpeech2
 import hifigan
@@ -121,11 +121,22 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
 # -- Config -------------------------------------------------------------------
-cfg_path = os.path.join(BASE_DIR, "Telugu", "config.yaml")
+cfg_path = os.path.join(SCRIPT_DIR, "config.yaml")
 with open(cfg_path, "r", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
-cfg["path"]["preprocessed_path"] = os.path.join(BASE_DIR, "preprocessing", "Telugu")
+stats_candidates = [
+    os.path.join(SCRIPT_DIR, "stats.json"),
+    os.path.join(SCRIPT_DIR, "inference", "stats.json"),
+    os.path.join(BASE_DIR, "preprocessing", "Telugu", "stats.json"),
+]
+resolved_stats_dir = SCRIPT_DIR
+for sc in stats_candidates:
+    if os.path.exists(sc):
+        resolved_stats_dir = os.path.dirname(sc)
+        break
+
+cfg["path"]["preprocessed_path"] = resolved_stats_dir
 preprocess_config = {
     "dataset":        cfg["dataset"],
     "path":           cfg["path"],
@@ -134,7 +145,7 @@ preprocess_config = {
 model_config = cfg["model"]
 
 # -- Stats -------------------------------------------------------------------
-stats_path = os.path.join(cfg["path"]["preprocessed_path"], "stats.json")
+stats_path = os.path.join(resolved_stats_dir, "stats.json")
 with open(stats_path, "r") as f:
     stats = json.load(f)
     pitch_mean, pitch_std   = stats["pitch"][2],  stats["pitch"][3]
