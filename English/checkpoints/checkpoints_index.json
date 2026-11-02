@@ -2,30 +2,30 @@
   "max_best": 3,
   "best_checkpoints": [
     {
-      "step": 11000,
-      "val_loss": 2.5504951592105325,
-      "filename": "best_step_11000.pth",
+      "step": 61000,
+      "val_loss": 2.5855484174978955,
+      "filename": "best_step_61000.pth",
       "rank": 1
     },
     {
-      "step": 12000,
-      "val_loss": 2.5525086597207403,
-      "filename": "best_step_12000.pth",
+      "step": 66000,
+      "val_loss": 2.589168970450639,
+      "filename": "best_step_66000.pth",
       "rank": 2
     },
     {
-      "step": 17000,
-      "val_loss": 2.5621669765451958,
-      "filename": "best_step_17000.pth",
+      "step": 65000,
+      "val_loss": 2.589902606151059,
+      "filename": "best_step_65000.pth",
       "rank": 3
     }
   ],
   "latest_checkpoint": {
-    "step": 53000,
-    "epoch": 249,
-    "val_loss": 2.59261840022601,
+    "step": 100000,
+    "epoch": 468,
+    "val_loss": 2.6089992286692354,
     "best_loss": 2.5504951592105325,
     "filename": "latest_checkpoint.pth"
   },
-  "updated_at": "2026-11-02 01:00:51 UTC"
+  "updated_at": "2026-11-02 11:52:10 UTC"
 }
