@@ -274,6 +274,28 @@ python Telugu/inference/inference.py \
     --output_wav Results/Telugu/generated_audios/output.wav
 ```
 
+### Custom Arbitrary Text Synthesis (Calibrated Phase 4 Pipeline)
+Synthesize custom arbitrary English sentences directly from raw text without manual phoneme transcription. The script dynamically performs MFA dictionary lookup (`english_india_mfa.dict`), punctuation-to-pause mapping (`@sp`), name/domain overrides, post-scaling rounding, and selective vowel nucleus duration protection:
+
+```bash
+# General text synthesis example
+python synthesize_custom.py \
+    --text "Hi, I am Savio." \
+    --output custom_synthesize/hi_i_am_savio.wav
+
+# Multi-clause sentence with custom duration scaling and speaker selection
+python synthesize_custom.py \
+    --text "Good morning, welcome to our speech synthesis demonstration." \
+    --speaker_id 27 \
+    --d_control 1.25 \
+    --output custom_synthesize/demo.wav
+
+# Direct explicit phoneme override
+python synthesize_custom.py \
+    --phonemes "{h aj @sp aj a m s aː ʋ i oː @sp}" \
+    --output custom_synthesize/savio_phonemes.wav
+```
+
 ### Regenerate Assignment Test Sentences
 To regenerate all benchmark sentences from `Assignment.pdf`:
 ```bash
