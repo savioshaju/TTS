@@ -94,6 +94,8 @@ Project Outputs and Model Checkpoints
 % TABLE OF CONTENTS
 % -------------------------------------------------------------------------
 \pagenumbering{roman}
+\setcounter{tocdepth}{2}
+\addtocontents{toc}{\protect\enlargethispage{2\baselineskip}}
 \tableofcontents
 \newpage
 \pagenumbering{arabic}
@@ -287,7 +289,26 @@ To stabilize neural network training across speakers, pitch and energy values we
 \begin{equation}
     \hat{F}_{0, t} = \frac{\ln(F_{0, t}) - \mu_{F_0}}{\sigma_{F_0}}, \quad \hat{E}_t = \frac{E_t - \mu_E}{\sigma_E}
 \end{equation}
-The global statistics ($\mu, \sigma$) were persisted in \texttt{stats.json} for both languages (see Table~\ref{tab:dataset_stats}) and used to denormalize predicted values during inference.
+The global statistics ($\mu, \sigma$) were persisted in \texttt{stats.json} for both languages (see Table~\ref{tab:dataset_stats}) and used to denormalize predicted values during inference. Figure~\ref{fig:feature_diagnostics} illustrates the feature extraction verification pipeline and training distributions.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/diagnostic_features_example.png}
+    \caption{Utterance-level features (\texttt{svarah\_0\_0})}
+    \label{fig:feat_example}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/diagnostic_feature_distributions.png}
+    \caption{Global training distributions ($\mu, \sigma$)}
+    \label{fig:feat_dist}
+\end{subfigure}
+\caption{Acoustic feature extraction verification. Left: Time-aligned raw waveform, 80-channel log-mel spectrogram, PyWorld continuous pitch contour, and $L_2$ frame energy. Right: Empirical training-set distributions used for strict z-score normalization.}
+\label{fig:feature_diagnostics}
+\end{figure}
 
 % -------------------------------------------------------------------------
 % SECTION 7: MODEL ARCHITECTURE AND IMPLEMENTATION DETAILS
@@ -299,23 +320,9 @@ The FastSpeech 2 architecture consists of three main stages: an FFT Encoder, a V
 
 \begin{figure}[H]
 \centering
-\begin{minipage}{0.85\textwidth}
-\centering
-\fbox{\parbox{\textwidth}{
-\centering\vspace{10pt}
-\textbf{FastSpeech 2 Architecture Flowchart}\\[10pt]
-$\text{Input Phonemes} \longrightarrow \fbox{\text{Phoneme Embedding}} \longrightarrow \fbox{\text{4-Layer FFT Encoder}} \longrightarrow \mathbf{H}_{\text{enc}}$\\[8pt]
-$\mathbf{H}_{\text{enc}} + \fbox{\text{Speaker Embedding}} \longrightarrow \fbox{\textbf{Variance Adaptor}}$\\[6pt]
-$\quad \bullet \text{ Duration Predictor} \longrightarrow \fbox{\text{Length Regulator}} \longrightarrow \mathbf{H}_{\text{expanded}}$\\[4pt]
-$\quad \bullet \text{ Pitch Predictor} \longrightarrow \text{Pitch Embedding} \longrightarrow \mathbf{H}_{\text{expanded}} + \mathbf{E}_{\text{pitch}}$\\[4pt]
-$\quad \bullet \text{ Energy Predictor} \longrightarrow \text{Energy Embedding} \longrightarrow \mathbf{H}_{\text{expanded}} + \mathbf{E}_{\text{energy}}$\\[8pt]
-$\mathbf{H}_{\text{adapted}} \longrightarrow \fbox{\text{4-Layer FFT Decoder}} \longrightarrow \text{Mel-Spectrogram}_{\text{coarse}}$\\[8pt]
-$\text{Mel}_{\text{coarse}} + \fbox{\text{5-Layer Conv Post-Net}} \longrightarrow \text{Mel-Spectrogram}_{\text{refined}}$\\[8pt]
-$\text{Mel}_{\text{refined}} \longrightarrow \fbox{\text{Polyphase Sinc Resampler}} \longrightarrow \fbox{\text{HiFi-GAN Vocoder}} \longrightarrow \textbf{Output Waveform (16 kHz)}$\\[10pt]
-}}
-\caption{Block diagram of the implemented FastSpeech 2 architecture with vocoder bridge.}
+\includegraphics[width=0.8\textwidth]{figures/model_architecture.png}
+\caption{Block diagram of the implemented FastSpeech 2 architecture, illustrating the Feed-Forward Transformer (FFT) Encoder, Length Regulator, Variance Predictors (Duration, Pitch, Energy), FFT Decoder, Post-Net, and neural vocoder integration.}
 \label{fig:architecture}
-\end{minipage}
 \end{figure}
 
 \subsection{Encoder and Decoder}
@@ -444,12 +451,12 @@ A rigorous audit of the training logs reveals an important dynamic between early
 % -------------------------------------------------------------------------
 % SECTION 9: SPEECH SYNTHESIS AND BENCHMARK EVALUATION
 % -------------------------------------------------------------------------
-\section{Speech Synthesis and Benchmark Evaluation}
+\section{Speech Synthesis Evaluation and Variance Adaptor Analysis}
 
-\subsection{Inference Workflow}
+\subsection{Inference Execution and Checkpoint Loading}
 Inference is executed by loading the best validated checkpoint (\texttt{best\_model.pth}), passing phoneme token sequences through the FFT Encoder, predicting duration, pitch, and energy via the Variance Adaptor, decoding mel-spectrogram frames with the FFT Decoder and Post-Net, and synthesizing the final waveform via the HiFi-GAN vocoder and resampling bridge.
 
-\subsection{Benchmark Evaluation Metrics}
+\subsection{Quantitative Benchmark Performance Across Prescribed Sentences}
 The trained FastSpeech 2 models were evaluated both on the held-out validation test split (1.09 hours for English, 0.82 hours for Telugu) and on the 10 prescribed assignment benchmark test sentences (5 English sentences totaling 28.6 seconds, 5 Telugu sentences totaling 23.4 seconds). Table~\ref{tab:eval_metrics} presents the quantitative acoustic measurements for the prescribed sentences.
 
 \begin{table}[H]
@@ -477,11 +484,9 @@ The trained FastSpeech 2 models were evaluated both on the held-out validation t
 \end{table}
 
 % -------------------------------------------------------------------------
-% SECTION 10: INDIVIDUAL TEST SENTENCE ANALYSIS & VARIANCE PLOTS
+% SECTION 9 (CONTINUED): ENGLISH AND TELUGU BENCHMARK EVALUATIONS
 % -------------------------------------------------------------------------
-\section{Individual Sentence Analysis and Variance Profiles}
-
-\subsection{English Test Sentences}
+\subsection{Prescribed English Benchmark Sentences and Variance Profiles}
 
 \subsubsection{Sentence E1: Morphological Stress on Long Compounds}
 \textbf{Text:} \textit{``The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings.''}
@@ -539,7 +544,7 @@ Numerals and times are expanded into words (\textit{ten forty-five A M}, \textit
 \label{fig:e4}
 \end{figure}
 
-\subsection{Telugu Test Sentences}
+\subsection{Prescribed Telugu Benchmark Sentences and Variance Profiles}
 
 \subsubsection{Sentence T1: Polysyllabic Scientific Compound}
 \textbf{Text:} \texttelugu{న్యూరోఫార్మకోలాజికల్ పరిశోధనలో నూతన ఔషధాల ప్రభావాన్ని విశ్లేషించారు.}
@@ -600,7 +605,7 @@ Arabic numerals are expanded into spoken Telugu words (\texttelugu{రెండ�
 % -------------------------------------------------------------------------
 % SECTION 11: CROSS-LINGUISTIC COMPARATIVE ANALYSIS
 % -------------------------------------------------------------------------
-\section{Cross-Linguistic Comparative Analysis and Recommendations}
+\section{Cross-Linguistic Comparative Analysis, Failure Modes, and Technical Recommendations}
 
 \subsection{Linguistic Comparison: Indian English vs. Telugu}
 \begin{itemize}
@@ -651,6 +656,12 @@ Due to GitHub file size limits, large pre-trained model binaries are hosted on G
 % -------------------------------------------------------------------------
 % REFERENCES
 % -------------------------------------------------------------------------
+% -------------------------------------------------------------------------
+% SECTION 12: CONCLUSION
+% -------------------------------------------------------------------------
+\section{Conclusion}
+This project delivered an end-to-end, reproducible implementation of FastSpeech 2-based text-to-speech synthesis tailored specifically for Indian English (AI4Bharat Svarah) and Telugu (IndicTTS). By deploying language-specific phonetic pipelines---Montreal Forced Alignment with 100 IPA symbols for English and Meta MMS forced alignment with 460 native Akshara tokens for Telugu---the system successfully preserved complex phonological nuances, including retroflex plosives and Dravidian consonant clusters, without relying on lossy Romanization. Multi-GPU training over 100,000 steps was stabilized using memory management safeguards and dynamic device routing, resolving key upstream defects in the baseline codebase. A critical checkpoint audit demonstrated that Phase 2 models (Step 61,000 for English and Step 74,000 for Telugu) successfully overcame the acoustic over-smoothing pitfalls of early loss minimums. Integrated with a polyphase sinc resampling bridge to resolve vocoder sampling rate discrepancies, the finalized models synthesize natural, intelligible speech across all prescribed benchmark test sentences. Complete code, reproducible configurations, evaluation artifacts, and trained weights are permanently preserved and distributed via GitHub and Google Drive.
+
 \begin{thebibliography}{99}
 \bibitem{fastspeech2}
 Y. Ren, C. Hu, X. Tan, T. Qin, S. Zhao, Z. Zhao, and T.-Y. Liu, ``FastSpeech 2: Fast and high-quality end-to-end text to speech,'' in \textit{Proc. Int. Conf. Learn. Represent. (ICLR)}, 2021.
