@@ -121,22 +121,106 @@ TTS/
 
 ---
 
-## 3. Dataset Information
+## 3. Dataset Information & Acoustic Preparation
 
-### English (Svarah Multi-Speaker Indian English)
-- **Source**: Svarah Indian English Corpus.
-- **Speakers**: 104 speakers (54 female, 50 male) providing natural acoustic diversity.
-- **Duration**: ~5 hours, segmented into 2,752 clean utterances.
-- **Split**: 2,476 training utterances / 276 validation utterances (stratified across speakers).
-- **Alignment**: Montreal Forced Aligner (MFA) v2.2 with CMUDict + Svarah acoustic model.
-- **Speaker Brightness Selection**: Speaker `spk_028` demonstrates high spectral centroid (1624–2223 Hz), yielding crisp consonant bursts (`/s/`, `/t/`, `/k/`) and clear word separation.
+This project trains two separate FastSpeech 2 acoustic models on contrasting speech corpora: **Indian English** (AI4Bharat Svarah multi-speaker crowdsourced corpus) and **Telugu** (IndicTTS bilingual studio-quality corpus). The datasets were carefully curated, quality-filtered, standardized, and partitioned to balance acoustic fidelity, phonetic coverage, and demographic representation.
 
-### Telugu (IndicTTS Bilingual Corpus)
-- **Source**: IndicTTS (IIT Madras / MeitY).
-- **Speakers**: 2 native speakers (1 male, 1 female), ~2.5 hours per speaker (~5 hours total).
-- **Split**: 4,496 training utterances / 916 validation utterances.
-- **Alignment**: Meta MMS (Massively Multilingual Speech) forced aligner trained on Telugu phoneme CTC emissions.
-- **Orthography**: Syllabic *akshara* representation maintaining strict 1-to-1 acoustic mapping and natural open-vowel word endings.
+---
+
+### 3.1. English Corpus: AI4Bharat Svarah (Multi-Speaker Indian English)
+
+- **Corpus Origin & Scope**: 
+  - Svarah is an open-access Indian English speech corpus curated by AI4Bharat, capturing native-accented English spoken by Indian bilinguals across multiple linguistic regions.
+  - While originally designed as an automatic speech recognition (ASR) benchmark, it presents a challenging multi-speaker acoustic landscape with natural variations in acoustic environments, recording microphones, and regional prosodic patterns.
+- **Demographic & Speaker Diversity**:
+  - **104 speakers** (54 female, 50 male) covering **19 distinct native-language (L1) backgrounds**, including Hindi, Telugu, Tamil, Kannada, Marathi, Bengali, Odia, Gujarati, Malayalam, and Urdu.
+  - This broad demographic distribution prevents the model from collapsing into a single regional accent and provides realistic Indian English prosodic dynamics.
+- **Utterance Sampling & Duration**:
+  - Utterances were sampled via **speaker-stratified sampling** with a target quota of approximately 40 clean utterances per speaker (fixed random seed `42`).
+  - Total filtered audio retained: **4,165 utterances** (~**6.07 hours**, 21,852 seconds) with a mean utterance length of 5.25 seconds.
+- **Train / Validation Partitioning**:
+  - FastSpeech 2 incorporates a learned speaker embedding table ($104 \times 256$). If validation speakers were held out entirely, their embeddings would remain randomly initialized, producing artificial validation degradation.
+  - Partitioning was therefore performed **within each speaker** (~82% train / 18% val):
+    - **Training Set**: 3,419 utterances (~4.98 hours / 17,928 seconds).
+    - **Validation Set**: 746 utterances (~1.09 hours / 3,924 seconds).
+    - Strict zero-utterance overlap between training and validation splits.
+- **Phonetic Representation & Text Front-End**:
+  - **Text Normalization**: Comprehensive expansion of numbers, dates, times, currency symbols, and abbreviations into spoken words (e.g., `"10:45 AM"` $\to$ `"ten forty-five A M"`).
+  - **Grapheme-to-Phoneme (G2P)**: Word-to-phoneme conversion using the Montreal Forced Aligner pronunciation dictionary. Out-of-vocabulary words are predicted using the CMU neural `g2p_en` model augmented with post-processing rules for Indian English dental plosive substitutions.
+  - **Phoneme Inventory**: 100 IPA phonetic symbols including vowels, diphthongs, consonants, and the explicit boundary pause token `@sp`.
+- **Forced Alignment & Duration Ground Truth**:
+  - Montreal Forced Aligner (MFA v2.2) with the pre-trained `english_mfa` acoustic model.
+  - Aligned phone boundaries were converted to mel-frame durations at 16 ms per frame (hop size 256 @ 16 kHz).
+- **Representative Speaker Selection**:
+  - For inference, Speaker ID `27` (`spk_028`, female) was selected for primary evaluation due to high spectral brightness and clarity (spectral centroid 1624–2223 Hz), yielding crisp consonant bursts (`/s/`, `/t/`, `/k/`) and articulate syllabic boundaries.
+
+---
+
+### 3.2. Telugu Corpus: IndicTTS (High-Fidelity Studio Speech)
+
+- **Corpus Origin & Scope**:
+  - IndicTTS Telugu corpus curated by IIT Madras and the Ministry of Electronics and Information Technology (MeitY), Government of India.
+  - Recorded in professional soundproof studios by trained voice talents, providing pristine signal-to-noise ratio, consistent room acoustics, and standard modern Telugu diction.
+- **Speaker Composition**:
+  - **2 native speakers** (1 female, 1 male), ensuring balanced gender acoustic representation.
+  - The female recordings originate from 48 kHz studio sessions, while the male recordings originate from 16 kHz sessions.
+- **Subsampling & Duration**:
+  - Selected **2,693 clean utterances** (~**5.00 hours**, 18,000 seconds) with a mean utterance length of 6.68 seconds:
+    - **Female Speaker (`telugufemale`)**: 1,348 utterances (~2.50 hours).
+    - **Male Speaker (`telugumale`)**: 1,345 utterances (~2.50 hours).
+- **Train / Validation Partitioning**:
+  - Stratified 84% train / 16% validation split across both speakers:
+    - **Training Set**: 2,248 utterances (~4.18 hours / 15,048 seconds; 1,124 female, 1,124 male).
+    - **Validation Set**: 445 utterances (~0.82 hours / 2,952 seconds; 224 female, 221 male).
+    - Zero utterance overlap between splits.
+- **Native Script Akshara Orthography**:
+  - Telugu is a syllabic abugida language. Instead of fragile lossy Romanization (ITRANS/WX), the pipeline operates directly on native Telugu Unicode script.
+  - **Text Normalization**: Unicode NFC normalization, zero-width character stripping, real conjunct preservation, and numeral expansion into formal Telugu words.
+  - **Akshara Segmentation**: Text is segmented into consonant-vowel syllabic units (*aksharas*) and conjunct clusters (*samyuktaksharas*), yielding a vocabulary of **460 discrete tokens** plus boundary silence `@sp`. This preserves natural open-vowel word endings and geminate consonant dynamics.
+- **Forced Alignment via Meta MMS**:
+  - Aligned using Meta's Massively Multilingual Speech CTC acoustic model (`facebook/mms-1b-all`).
+  - Frame-level CTC character probabilities were aligned to the akshara sequence using a dynamic programming Viterbi trellis, with a safety floor of 1 frame (16 ms) per non-silent token.
+
+---
+
+### 3.3. Audio Cleaning, Filtering & Standardization Pipeline
+
+Both corpora underwent an identical, automated multi-stage acoustic conditioning pipeline:
+
+1. **Polyphase Bandlimited Resampling**:
+   - All audio files were standardized to **16,000 Hz, 16-bit mono PCM**.
+   - The 48 kHz Telugu audio was downsampled using a 64-tap Kaiser-windowed polyphase sinc filter (cutoff 7,600 Hz) to prevent high-frequency aliasing artifacts.
+2. **Quality & Duration Filtering**:
+   - Filtered out utterances with digital clipping (sample value $|x| \ge 0.999$), signal-to-noise ratio $\text{SNR} < 15\text{ dB}$, or duration outside **1.0 to 12.0 seconds** (preventing out-of-memory errors in self-attention matrices).
+3. **Peak Normalization**:
+   - Each waveform was peak-normalized to a target amplitude of **0.95** ($-0.45\text{ dBFS}$) to guarantee consistent volume and avoid saturation in vocoder synthesis.
+4. **Variance Adaptor Acoustic Targets**:
+   - **80-Band Mel-Spectrograms**: FFT size 1024, hop size 256 (16 ms frame rate, 62.5 fps), Hann window, $F_{\text{min}}=0\text{ Hz}, F_{\text{max}}=8000\text{ Hz}$.
+   - **Continuous Pitch ($F_0$)**: Extracted via PyWorld Harvest algorithm with linear interpolation across unvoiced segments, log-transformed, and standardized per speaker.
+   - **Energy ($E$)**: Calculated as the frame-wise L2-norm of the short-time Fourier transform (STFT) magnitude spectrum.
+
+---
+
+### 3.4. Dataset Comparison & Statistical Summary
+
+| Attribute | English Corpus (AI4Bharat Svarah) | Telugu Corpus (IndicTTS) |
+| :--- | :--- | :--- |
+| **Source / Institution** | AI4Bharat / IIT Madras | IndicTTS (IIT Madras / MeitY) |
+| **Domain & Environment** | Crowdsourced Indian English, multi-device | Professional soundproof recording studio |
+| **Audio Format (Raw)** | 16 kHz, 16-bit mono WAV | 48 kHz (Female) / 16 kHz (Male) 16-bit WAV |
+| **Standardized Format** | 16 kHz, 16-bit mono PCM | 16 kHz, 16-bit mono PCM (Kaiser polyphase) |
+| **Total Clean Utterances** | **4,165 utterances** | **2,693 utterances** |
+| **Total Audio Duration** | **6.07 hours** (21,852 s) | **5.00 hours** (18,000 s) |
+| **Mean Utterance Length** | 5.25 seconds | 6.68 seconds |
+| **Speakers** | 104 speakers (54 female, 50 male) | 2 speakers (1 female, 1 male) |
+| **L1 Demographic Diversity**| 19 Indian native-language backgrounds | Native Andhra/Telangana Telugu speakers |
+| **Training Split** | 3,419 utterances (**4.98 hours**) | 2,248 utterances (**4.18 hours**) |
+| **Validation Split** | 746 utterances (**1.09 hours**) | 445 utterances (**0.82 hours**) |
+| **Input Symbols / Tokens** | 100 IPA phonemes + `@sp` | 460 native akshara tokens + `@sp` |
+| **Forced Aligner** | Montreal Forced Aligner (MFA v2.2) | Meta MMS CTC (`facebook/mms-1b-all`) |
+| **Pitch Mean $\mu$ / Std $\sigma$** | $186.28\text{ Hz} \pm 61.19\text{ Hz}$ | $198.32\text{ Hz} \pm 43.19\text{ Hz}$ |
+| **Energy Mean $\mu$ / Std $\sigma$**| $55.14\text{ dB} \pm 40.10\text{ dB}$ | $54.23\text{ dB} \pm 35.32\text{ dB}$ |
+| **Mel Hop / Frame Rate** | 256 samples (16 ms / 62.5 fps) | 256 samples (16 ms / 62.5 fps) |
 
 ---
 
