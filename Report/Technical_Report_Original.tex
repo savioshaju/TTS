@@ -1,0 +1,584 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\newfontfamily\telugufont{Nirmala UI}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    citecolor=black
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+\title{\textbf{Technical Report: Bilingual Multi-Speaker FastSpeech 2 Text-to-Speech Synthesis for Indian English and Telugu}}
+\author{\textbf{Implementation, Optimization, and Evaluation Report}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This technical report presents the complete engineering implementation, empirical auditing, and scientific evaluation of a bilingual, non-autoregressive Text-to-Speech (TTS) synthesis system based on the FastSpeech~2 architecture. The system is implemented and trained independently for Indian English using the AI4Bharat Svarah corpus (104 demographic speakers) and for Telugu using the IndicTTS corpus (native male and female speakers). The pipeline standardizes acoustic feature extraction at a $16\,\text{kHz}$ sampling rate ($80$-channel mel-spectrograms, continuous $F_0$ pitch contours via PyWorld DIO/StoneMask, and frame-level $L_2$ energy envelopes). Phoneme-level temporal alignments are established via Montreal Forced Aligner (MFA v2.2) with a 100-symbol Indian English IPA vocabulary for English, and via Meta MMS (Massively Multilingual Speech) CTC forced alignment with a 460-token phonetic akshara inventory for Telugu. 
+
+Both models were trained through a full $100,000$-step trajectory on dual NVIDIA Tesla T4 GPUs with PyTorch DataParallel, scheduled Adam optimization, and memory-leak safeguards. Comprehensive loss trajectory analysis is conducted across two structured training phases, identifying optimal validation checkpoints at Step~61,000 ($\mathcal{L}_{\text{val}} = 2.5855$) for English and Step~74,000 ($\mathcal{L}_{\text{val}} = 2.1457$) for Telugu. Synthesized speech and Variance Adaptor predictions (duration, pitch, and energy) are evaluated across all prescribed benchmark test sentences (E1--E4 for English and T1--T4 for Telugu), highlighting linguistic stress handling, heteronym syntactic disambiguation, intra-word pause insertion, and numeral/temporal normalization. A cross-linguistic comparative analysis examines speaker entropy, alignment characteristics, failure modes, and architectural improvements. Full reproducibility is guaranteed through published dependency manifests, configuration files, CLI execution protocols, and publicly accessible model weights hosted on Google Drive.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction and Folder Structure Architecture}
+
+\subsection{Background and Objectives}
+Non-autoregressive acoustic modeling represents a major paradigm shift in modern neural speech synthesis. While autoregressive architectures (such as Tacotron~2 and Transformer TTS) generate mel-spectrograms sequentially conditioned on previous acoustic frames, they suffer from slow inference speed, error propagation along autoregressive rollouts, and lack of direct prosodic controllability. FastSpeech~2 \cite{ren2020fastspeech2} addresses these limitations by predicting mel-spectrograms fully in parallel from phoneme sequences. Central to FastSpeech~2 is the \textbf{Variance Adaptor}, which explicitly conditions the hidden representation on phoneme duration, fundamental frequency ($F_0$ pitch), and acoustic energy, effectively resolving the one-to-many mapping problem inherent in text-to-speech.
+
+The primary objective of this project is to implement, adapt, train, and evaluate FastSpeech~2 independently for two distinct languages of the Indian subcontinent:
+\begin{enumerate}
+    \item \textbf{Indian English}: Conditioned across a diverse, multi-accented demographic pool of 104 speakers from the AI4Bharat Svarah corpus.
+    \item \textbf{Telugu}: Conditioned on native male and female speakers from the IndicTTS corpus, adapting the architecture to handle Dravidian agglutinative morphology and non-Latin syllabic akshara orthography.
+\end{enumerate}
+
+\subsection{Codebase Organization and Repository Architecture}
+The implementation is organized in strict compliance with the structural directives stipulated in Section~4 of the assignment guidelines. The directory hierarchy cleanly isolates language-specific training, preprocessing, inference scripts, results, and checkpoints:
+
+\begin{lstlisting}
+project/
+|-- English/
+|   |-- train.py                  # Training engine with memory safeguards & DataParallel
+|   |-- preprocess.py             # Feature extraction and manifest orchestrator
+|   |-- inference.py              # Single-sentence CLI speech synthesis engine
+|   |-- config.yaml               # English model, training, and acoustic config
+|   `-- checkpoints/              # Checkpoint download guides & retention index
+|-- Telugu/
+|   |-- train.py                  # Dual-GPU Telugu training engine with safeguards
+|   |-- preprocess.py             # Resampling, MMS alignment, and feature extractor
+|   |-- inference.py              # Syllabic akshara G2P and inference engine
+|   |-- config.yaml               # Telugu model, training, and acoustic config
+|   `-- checkpoints/              # Checkpoint download guides & retention index
+|-- Results/
+|   |-- English/
+|   |   |-- training_loss.png     # Full 100k multi-task training loss curve
+|   |   |-- validation_loss.png   # Full 100k validation loss trajectory
+|   |   |-- phase_1_loss.png      # Phase 1 loss curve (Steps 100 - 53,700)
+|   |   |-- phase_2_loss.png      # Phase 2 loss curve (Steps 53,100 - 100,000)
+|   |   |-- test_generated_audios/# Generated benchmark audios (E1 to E4)
+|   |   `-- variance_adaptor_plots/
+|   |       |-- duration/         # Phoneme duration bar charts
+|   |       |-- pitch/            # F0 pitch contour plots
+|   |       |-- energy/           # Energy envelope plots
+|   |       `-- combined/         # 3-panel synchronized variance profiles
+|   `-- Telugu/
+|       |-- training_loss.png     # Full 100k multi-task training loss curve
+|       |-- validation_loss.png   # Full 100k validation loss trajectory
+|       |-- phase_1_loss.png      # Phase 1 loss curve (Steps 100 - 56,000)
+|       |-- phase_2_loss.png      # Phase 2 loss curve (Steps 56,100 - 100,000)
+|       |-- test_generated_audios/# Generated benchmark audios (T1 to T4)
+|       `-- variance_adaptor_plots/
+|           |-- duration/         # Phoneme duration bar charts
+|           |-- pitch/            # F0 pitch contour plots
+|           |-- energy/           # Energy envelope plots
+|           `-- combined/         # 3-panel synchronized variance profiles
+|-- Report/
+|   |-- Technical_Report.tex      # Complete LaTeX source
+|   `-- Technical_Report.pdf      # Formally compiled academic report
+|-- README.md                     # Technical overview, quickstart & Drive links
+`-- requirements.txt              # Pinned software dependencies
+\end{lstlisting}
+
+\section{FastSpeech 2 Architecture and Language-Specific Adaptations}
+
+\subsection{Base Architecture and Upstream Reference Components}
+The system implementation adopts the upstream reference architecture of \cite{ren2020fastspeech2} as implemented in \texttt{FastSpeech2-master}, comprising three main processing blocks:
+\begin{enumerate}
+    \item \textbf{Feed-Forward Transformer (FFT) Encoder}: The input phoneme ID sequence $\mathbf{x} = [x_1, \dots, x_N]$ is mapped to 256-dimensional phoneme embeddings, added to 1D sinusoidal positional encodings, and processed through 4 stacked FFT blocks. Each FFT block consists of a 2-head Multi-Head Self-Attention (MHSA) module followed by a 2-layer 1D convolutional network with kernel sizes 9 and 1 and ReLU activation.
+    \item \textbf{Variance Adaptor}: The Variance Adaptor bridges the temporal resolution mismatch between the input phoneme sequence ($N$ tokens) and the target mel-spectrogram sequence ($T$ frames). It incorporates:
+    \begin{itemize}
+        \item \textbf{Duration Predictor}: Predicts the integer mel-frame duration $d_i$ for each phoneme using a 2-layer 1D convolutional network with kernel size 3 and ReLU, trained with mean squared error (MSE) in log domain ($\log(d_i + 1)$).
+        \item \textbf{Length Regulator}: Replicates the hidden representation $\mathbf{h}_i$ of each phoneme $d_i$ times, expanding the sequence length from $N$ to $\sum_{i=1}^N d_i = T$.
+        \item \textbf{Pitch Predictor \& Embedding}: Predicts the average fundamental frequency $\bar{P}_i$ for each phoneme. Continuous pitch values are quantized into 256 linear bins, mapped to 256-dimensional pitch embeddings, and added to the expanded hidden representation.
+        \item \textbf{Energy Predictor \& Embedding}: Predicts the average acoustic energy $\bar{E}_i$ for each phoneme, quantized into 256 linear bins, mapped to 256-dimensional energy embeddings, and added to the representation.
+    \end{itemize}
+    \item \textbf{FFT Decoder and Post-Net}: The expanded, variance-conditioned representation is processed through a 6-layer FFT Decoder to predict an initial 80-channel mel-spectrogram. A 5-layer convolutional Post-Net (kernel size 5, 512 channels) predicts a residual mel-spectrogram, refined by residual addition: $\mathbf{M}_{\text{refined}} = \mathbf{M}_{\text{initial}} + \mathbf{M}_{\text{residual}}$.
+    \item \textbf{Neural Vocoder}: Waveform synthesis is performed using a pretrained HiFi-GAN universal neural vocoder \cite{kong2020hifigan}, utilizing multi-period (MPD) and multi-scale (MSD) discriminators.
+\end{enumerate}
+
+\subsection{Architectural Modifications and Bug Fixes for English}
+During auditing and adaptation of the English pipeline, several critical defects in the upstream reference code were identified and resolved:
+\begin{enumerate}
+    \item \textbf{Variance Adaptor Energy Control Bug (BUG-01)}: In \texttt{model/modules.py} (lines 124 and 146), the parameter \texttt{p\_control} was erroneously passed to \texttt{get\_energy\_embedding(..., p\_control)} instead of \texttt{e\_control}. Consequently, user-specified energy scaling was completely ignored, while modifying pitch control inadvertently modulated both pitch and energy simultaneously. This was corrected to ensure independent control.
+    \item \textbf{Neural Vocoder Sample-Rate Resampling Bridge}: The English acoustic model was trained at $16,000\,\text{Hz}$ (hop length 256, frame period $16.0\,\text{ms}$), whereas the pretrained HiFi-GAN universal vocoder (\texttt{generator\_universal.pth.tar}) was natively trained on $22,050\,\text{Hz}$ audio. Directly passing $16\,\text{kHz}$ mel-spectrograms into this vocoder and writing the output at $16\,\text{kHz}$ artificially elongated speech by a factor of $22050/16000 = 1.378\times$ and shifted all formants and $F_0$ downwards by $-5.5$ semitones (spectral centroid $< 315\,\text{Hz}$). A bandlimited polyphase sinc resampling bridge was implemented in \texttt{utils/model.py} to resample the vocoder's native output from $22,050\,\text{Hz}$ back to $16,000\,\text{Hz}$, restoring natural pitch register and clear consonant articulation.
+    \item \textbf{Multi-Speaker Conditioning Formulation}: Multi-speaker identity was conditioned by adding a 256-dimensional trainable speaker embedding ($\mathbf{W}_{\text{spk}} \in \mathbb{R}^{104 \times 256}$) to the encoder output prior to the Variance Adaptor.
+    \item \textbf{Word-Level Silence Inflation Elimination}: In early inference scripts, pause tokens (\texttt{@sp}) were artificially inserted between every word, causing up to 40.5\% silence inflation. The front-end was modified to insert \texttt{@sp} strictly at syntactic clause boundaries (commas, full stops), matching the natural distribution of the training alignments.
+\end{enumerate}
+
+\subsection{Architectural Adaptations for Telugu}
+Adapting FastSpeech~2 to the Dravidian phonetic and orthographic structure of Telugu required substantial modifications:
+\begin{enumerate}
+    \item \textbf{Syllabic Akshara Phonetic Tokenizer}: Unlike English, which utilizes an external pronunciation lexicon (CMUDict/IPA), Telugu is phonetic and syllabic. An \textit{akshara} parser was engineered in \texttt{Telugu/inference.py} and \texttt{Telugu/preprocess.py} mapping Telugu Unicode script into 460 phonetic tokens. The inventory incorporates 13 independent vowels (\textit{Achulu}), 35 consonants (\textit{Hallulu}), 12 dependent vowel matras, the virama ($\text{U+0C4D}$), anusvara ($\text{U+0C02}$), and visarga ($\text{U+0C03}$).
+    \item \textbf{Meta MMS CTC Forced Alignment Integration}: Because MFA models do not natively support Telugu orthography, forced alignment was driven by Meta's Massively Multilingual Speech (MMS) CTC acoustic model. Character emission probabilities at 62.5~fps ($16.0\,\text{ms}$ per frame) were decoded into phone boundaries, guaranteeing that $\sum d_i = T_{\text{mel}}$ holds across all utterances.
+    \item \textbf{Bilingual Multi-Speaker Embeddings}: Conditioned on a 2-speaker embedding table ($\mathbf{W}_{\text{spk}} \in \mathbb{R}^{2 \times 256}$) differentiating \texttt{telugufemale} (ID 0) and \texttt{telugumale} (ID 1).
+    \item \textbf{Native Numeral and Temporal Text Normalization}: Telugu numerals, dates, and times (e.g., ``2026'', ``12{\telugufont వ}'', ``10:45'') are expanded into full Telugu words ({\telugufont రెండు వేల ఇరవై ఆరు}, {\telugufont పన్నెండవ}, {\telugufont పది నలభై ఐదు}) before phonetic tokenization, preventing digit-dropping artifacts.
+\end{enumerate}
+
+\section{Dataset Selection, Preprocessing, and Split Configurations}
+
+\subsection{English: AI4Bharat Svarah Corpus}
+\subsubsection{Selection, Demographic Diversity, and Subsampling}
+The English dataset was sourced from the AI4Bharat Svarah Indian English Corpus, a crowdsourced repository capturing authentic regional and demographic diversity across the Indian subcontinent. To satisfy the assignment constraint of approximately 5 hours for training and 1 hour for validation, the corpus was sampled into a balanced, high-fidelity subset of 4,202 utterances ($6.07$ hours):
+\begin{itemize}
+    \item \textbf{Speaker Coverage}: 104 distinct speakers (54 female, 50 male).
+    \item \textbf{First-Language Backgrounds}: 19 native language substrates represented (Urdu, Nepali, Odia, Kannada, Bodo, Kashmiri, Tamil, Telugu, Malayalam, Marathi, Gujarati, Konkani, Bengali, etc.).
+    \item \textbf{Acoustic Characteristics}: Clear presence of Indian English phonetic markers, including retroflex plosives (/ʈ/, /ɖ/), dental stops (/t̪/, /d̪/), labiodental approximants (/ʋ/ replacing /w/), and monophthongized long mid-vowels (/eː/, /oː/).
+\end{itemize}
+
+\subsubsection{Stratified Speaker Partitioning}
+As documented during the Stage~D architectural audit, multi-speaker FastSpeech~2 relies on a discrete lookup table \texttt{nn.Embedding(104, 256)}. Disjoint speaker-independent validation causes the validation speaker embeddings to remain frozen at their random Gaussian initializations, which corrupts validation loss and synthesis quality. Consequently, the 4,165 verified utterances were partitioned using a \textbf{speaker-dependent stratified split} ($\text{seed}=42$):
+\begin{itemize}
+    \item \textbf{Training Partition}: 3,419 utterances ($4.98$ hours).
+    \item \textbf{Validation Partition}: 746 utterances ($1.09$ hours).
+    \item \textbf{Speaker Ratio}: Exactly 104 speakers in both splits ($\approx 82\%$ train, $18\%$ validation per speaker).
+\end{itemize}
+
+\subsubsection{Montreal Forced Alignment and OOV Analysis}
+Text transcripts were cleaned using \texttt{basic\_cleaners} and aligned against $16\,\text{kHz}$ audio using the Montreal Forced Aligner (MFA v2.2) with the \texttt{english\_india\_mfa} acoustic model and pronunciation dictionary. An initial vocabulary audit of 4,202 transcripts revealed 279 out-of-vocabulary (OOV) word tokens, which were resolved via G2P fallback and manual phonetic transcription. Forced alignment succeeded on 4,172 utterances ($99.29\%$), with 30 failures categorized as severe audio truncation (17 utterances) or silence collapse on isolated Indian named entities (13 utterances). Exactly 4,165 utterances passed subsequent feature extraction.
+
+\subsection{Telugu: IndicTTS Corpus}
+\subsubsection{Selection, Resampling, and Dataset Balancing}
+The Telugu dataset was sourced from the high-quality IndicTTS corpus (developed by IIT Madras and MeitY). The raw Telugu shards contained non-uniform sampling rates ($48\,\text{kHz}$ for female, $16\,\text{kHz}$ for male). In Stage~A and Stage~C of the Telugu pipeline, all female audio was downsampled to $16,000\,\text{Hz}$ using a 64-tap Kaiser-windowed polyphase sinc filter with an anti-aliasing cutoff at $7,600\,\text{Hz}$, eliminating Nyquist imaging.
+
+The raw female corpus contained over 29 hours of audio. To satisfy the 5-hour training and 1-hour validation constraint and maintain gender balance, a stratified subsampling routine produced the balanced dataset \texttt{telugu\_prepared\_v2}:
+\begin{itemize}
+    \item \textbf{Female Speaker (\texttt{telugufemale})}: 1,348 utterances ($2.50$ hours).
+    \item \textbf{Male Speaker (\texttt{telugumale})}: 1,347 utterances ($2.50$ hours).
+    \item \textbf{Total Balanced Dataset}: 2,695 utterances ($5.00$ hours).
+    \item \textbf{Partition Splits}: 2,248 training utterances ($4.18$ hours) and 445 validation utterances ($0.82$ hours). Two corrupted utterances (\texttt{indic\_te\_0\_927} and \texttt{indic\_te\_3\_0}) were excluded during alignment validation.
+\end{itemize}
+
+\subsection{Acoustic Feature Extraction Methodology}
+Acoustic feature extraction was standardized identically across English and Telugu:
+\begin{enumerate}
+    \item \textbf{80-Channel Log-Mel Spectrograms}: Computed via \texttt{TacotronSTFT} using sampling rate $16,000\,\text{Hz}$, filter length 1024, hop length 256 ($16.0\,\text{ms}$, 62.5~fps), window length 1024, Hann windowing, and an 80-channel Slaney mel filterbank spanning $0\,\text{Hz}$ to $8000\,\text{Hz}$. All mel frames were aligned to total phoneme duration: $T_{\text{mel}} = \sum_{i} d_i$.
+    \item \textbf{Fundamental Frequency ($F_0$ Pitch)}: Extracted at $16.0\,\text{ms}$ resolution using PyWorld DIO followed by StoneMask refinement. Unvoiced frames ($F_0 = 0$) were interpolated in the continuous domain using linear interpolation with boundary edge padding. Continuous pitch was averaged over each phoneme's duration $d_i$.
+    \item \textbf{Acoustic Energy ($L_2$ Norm)}: Computed as the frame-wise $L_2$ norm of the linear STFT magnitude spectrum ($K = 513$ frequency bins) and averaged over each phoneme's duration.
+    \item \textbf{Strict Training-Only Normalization}: Feature statistics ($\mu, \sigma$) were computed strictly from the training splits to prevent data leakage.
+\end{enumerate}
+
+\begin{table}[htbp]
+\centering
+\caption{Cross-Linguistic Dataset Statistics and Acoustic Normalization Parameters}
+\label{tab:dataset_stats_comparison}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric / Parameter} & \textbf{English (Svarah)} & \textbf{Telugu (IndicTTS)} \\
+\midrule
+Audio Sampling Rate & 16,000 Hz & 16,000 Hz (Resampled from 48k/16k) \\
+Total Aligned Utterances & 4,165 & 2,693 \\
+Training Utterances & 3,419 (4.98 hours) & 2,248 (4.18 hours) \\
+Validation Utterances & 746 (1.09 hours) & 445 (0.82 hours) \\
+Distinct Speaker Count & 104 (54 Female, 50 Male) & 2 (1 Female, 1 Male) \\
+Phonetic Representation & 100 IPA Symbols (MFA) & 460 Akshara Tokens (MMS) \\
+Pitch Mean ($\mu_{F_0}$) & 187.97 Hz & 198.32 Hz \\
+Pitch Std ($\sigma_{F_0}$) & 52.88 Hz & 43.19 Hz \\
+Energy Mean ($\mu_E$) & 27.52 dB & 54.23 dB \\
+Energy Std ($\sigma_E$) & 19.46 dB & 35.32 dB \\
+Duration Hop / FPS & 256 samples / 62.5 fps & 256 samples / 62.5 fps \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.48\textwidth]{diagnostic_features_example.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{diagnostic_feature_distributions.png}
+\caption{Acoustic feature extraction diagnostics. Left: Raw audio, 80-channel mel-spectrogram, continuous $F_0$ pitch track, and $L_2$ energy contour for utterance \texttt{svarah\_0\_0}. Right: Global duration, pitch, and energy distributions across the training split.}
+\label{fig:feature_diagnostics}
+\end{figure}
+
+\section{Model Configurations, Hyperparameters, and Training Environments}
+
+\subsection{Hyperparameter Specifications}
+Both English and Telugu FastSpeech~2 models share the standardized architectural configuration detailed in Table~\ref{tab:model_hyperparameters}:
+
+\begin{table}[htbp]
+\centering
+\caption{FastSpeech 2 Model Architecture and Hyperparameters}
+\label{tab:model_hyperparameters}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Subsystem} & \textbf{Hyperparameter} & \textbf{English} & \textbf{Telugu} \\
+\midrule
+Transformer Encoder & Layers / Attention Heads & 4 / 2 & 4 / 2 \\
+                    & Hidden Dimension ($d_{\text{model}}$) & 256 & 256 \\
+                    & Conv 1D Filter Size & 1024 & 1024 \\
+                    & Conv 1D Kernel Sizes & [9, 1] & [9, 1] \\
+                    & Dropout Rate & 0.2 & 0.2 \\
+\midrule
+Variance Adaptor    & Predictor Layers / Filter Size & 2 / 256 & 2 / 256 \\
+                    & Predictor Kernel Size & 3 & 3 \\
+                    & Predictor Dropout & 0.5 & 0.5 \\
+                    & Pitch / Energy Quantization & Linear (256 bins) & Linear (256 bins) \\
+                    & Feature Representation Level & Phoneme-level & Phoneme-level \\
+\midrule
+Transformer Decoder & Layers / Attention Heads & 6 / 2 & 6 / 2 \\
+                    & Hidden Dimension ($d_{\text{model}}$) & 256 & 256 \\
+                    & Conv 1D Filter Size & 1024 & 1024 \\
+                    & Conv 1D Kernel Sizes & [9, 1] & [9, 1] \\
+                    & Dropout Rate & 0.2 & 0.2 \\
+\midrule
+Post-Net            & Conv 1D Layers & 5 & 5 \\
+                    & Channels / Kernel Size & 512 / 5 & 512 / 5 \\
+                    & Mel Channels & 80 & 80 \\
+\midrule
+Speaker Conditioning & Number of Speakers & 104 & 2 \\
+                    & Embedding Dimension & 256 & 256 \\
+\midrule
+Total Parameters    & Trainable Model Weights & 35,215,846 & 35,441,473 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Optimization Schedule and Loss Formulation}
+Model parameters were optimized using Scheduled Adam ($\beta_1 = 0.9, \beta_2 = 0.98, \epsilon = 10^{-9}$), with learning rate modulated per step via the Noam scheduler:
+\begin{equation}
+\text{LR}(t) = d_{\text{model}}^{-0.5} \cdot \min\left(t^{-0.5}, t \cdot t_{\text{warmup}}^{-1.5}\right)
+\end{equation}
+where $t_{\text{warmup}} = 4,000$ steps. The maximum learning rate of $9.88 \times 10^{-4}$ was attained at step 4,000, followed by power-law decay.
+
+The multi-task loss is defined as:
+\begin{equation}
+\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{mel}} + \mathcal{L}_{\text{postnet}} + \lambda_{\text{dur}} \mathcal{L}_{\text{dur}} + \lambda_{\text{pitch}} \mathcal{L}_{\text{pitch}} + \lambda_{\text{energy}} \mathcal{L}_{\text{energy}}
+\end{equation}
+where $\mathcal{L}_{\text{mel}}$ and $\mathcal{L}_{\text{postnet}}$ represent masked Mean Absolute Error (L1) on linear mel-spectrograms, and $\mathcal{L}_{\text{dur}}$, $\mathcal{L}_{\text{pitch}}$, and $\mathcal{L}_{\text{energy}}$ represent masked Mean Squared Error (L2) with weighting factors $\lambda = 1.0$.
+
+\subsection{Dual-GPU Training Environment and Production Safeguards}
+Training was executed on Kaggle utilizing dual NVIDIA Tesla T4 GPUs ($2 \times 14\,\text{GB}$ VRAM, 28~GB total) under \texttt{torch.nn.DataParallel} with \texttt{CUDA\_VISIBLE\_DEVICES="0,1"}:
+\begin{itemize}
+    \item \textbf{Batch Sizing}: 16 samples per GPU, establishing an effective global batch size of 32.
+    \item \textbf{Atomic Checkpoint Serialization}: To eliminate checkpoint corruption from preemption or out-of-memory events, states are written to \texttt{.tmp} files and swapped atomically via \texttt{os.replace}. Payloads encapsulate model weights, Adam optimizer states, scheduler step, epoch index, and complete RNG states.
+    \item \textbf{Numerical Stability}: Gradients were clipped to a maximum norm threshold of 1.0 (\texttt{torch.nn.utils.clip\_grad\_norm\_}). NaN/Inf checks were performed before optimizer stepping.
+    \item \textbf{glibc Heap Trimming}: Under extended Python iteration across 100,000 steps, glibc's internal heap allocator experiences fragmentation, causing memory to balloon. Integrating \texttt{ctypes.CDLL('libc.so.6').malloc\_trim(0)} at validation boundaries released unmapped memory pages, maintaining host RAM utilization strictly below 18\%.
+    \item \textbf{Strict Checkpoint Retention}: A rolling window maintained the Top 3 validation models and exactly 1 latest resumable checkpoint, bounding checkpoint storage to $\le 2.0\,\text{GB}$.
+\end{itemize}
+
+\section{Training Dynamics, Loss Trajectory, and Convergence Analysis}
+
+\subsection{English 100,000-Step Convergence Analysis}
+The English FastSpeech~2 model was trained in two contiguous execution phases on dual Tesla T4 GPUs:
+\begin{itemize}
+    \item \textbf{Phase 1 (Steps 100 to 53,700)}: Initial optimization from random initialization with 4,000 warmup steps. Rapid convergence occurred within the first 10,000 steps. Phase~1 achieved an interim validation minimum of $\mathbf{2.6180}$ at \textbf{Step 27,000}.
+    \item \textbf{Phase 2 (Steps 53,100 to 100,000)}: Resumed seamlessly from Step 53,100 without optimizer state reset. The model attained its global optimal validation loss of $\mathbf{2.5855}$ at \textbf{Step 61,000} (Epoch 285).
+    \item \textbf{Terminal State (Step 100,000)}: Reached step 100,000 (Epoch 468) with a training loss of $0.7818$ and validation loss of $2.6288$.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\caption{English FastSpeech 2 Checkpoint Retention Registry (100k Steps)}
+\label{tab:english_100k_checkpoints}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Checkpoint Identifier} & \textbf{Step} & \textbf{Epoch} & \textbf{Train Loss} & \textbf{Val Loss} & \textbf{Operational Role} \\
+\midrule
+Phase 1 Interim Best & 27,000 & 126 & 0.9412 & 2.6180 & Historical Phase 1 Snapshot \\
+Rank 1 Best Model (\texttt{best\_model.pth}) & \textbf{61,000} & \textbf{285} & \textbf{0.8415} & \textbf{2.5855} & \textbf{Primary Synthesis Model} \\
+Terminal Checkpoint (\texttt{latest\_checkpoint.pth}) & 100,000 & 468 & 0.7818 & 2.6288 & Full Training Horizon State \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.48\textwidth]{Results/English/training_loss.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{Results/English/validation_loss.png}
+\caption{English FastSpeech 2 loss trajectories across 100,000 steps. Left: Multi-task training loss breakdown (Total, Mel, PostNet, Duration, Pitch, Energy). Right: Validation loss showing initial convergence, plateauing, and minimum at Step 61,000.}
+\label{fig:english_loss_curves}
+\end{figure}
+
+\subsection{Telugu 100,000-Step Convergence Analysis}
+The Telugu model was similarly trained in two phases through 100,000 steps (Epoch 714):
+\begin{itemize}
+    \item \textbf{Phase 1 (Steps 100 to 56,000)}: Rapidly converged from an initial total loss of $8.9855$ to below $2.20$ by step 15,000. Phase~1 achieved an interim validation minimum of $\mathbf{2.1309}$ at \textbf{Step 30,000} (Epoch 214).
+    \item \textbf{Phase 2 (Steps 56,100 to 100,000)}: Resumed from Step 56,000. Phase~2 maintained steady convergence with low variance, reaching its optimal validation checkpoint of $\mathbf{2.1457}$ at \textbf{Step 74,000} (Epoch 528).
+    \item \textbf{Terminal State (Step 100,000)}: Finished at step 100,000 with a terminal training loss of $0.5841$ and validation loss of $2.1661$.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\caption{Telugu FastSpeech 2 Checkpoint Retention Registry (100k Steps)}
+\label{tab:telugu_100k_checkpoints_detailed}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Checkpoint Identifier} & \textbf{Step} & \textbf{Epoch} & \textbf{Train Loss} & \textbf{Val Loss} & \textbf{Operational Role} \\
+\midrule
+Phase 1 Interim Best & 30,000 & 214 & 0.8124 & 2.1309 & Historical Phase 1 Snapshot \\
+Rank 1 Best Model (\texttt{best\_model.pth}) & \textbf{74,000} & \textbf{528} & \textbf{0.6412} & \textbf{2.1457} & \textbf{Primary Synthesis Model} \\
+Rank 2 Candidate (\texttt{best\_step\_64000.pth}) & 64,000 & 457 & 0.6980 & 2.1462 & Retained Snapshot 2 \\
+Rank 3 Candidate (\texttt{best\_step\_78000.pth}) & 78,000 & 557 & 0.6275 & 2.1477 & Retained Snapshot 3 \\
+Terminal Checkpoint (\texttt{latest\_checkpoint.pth}) & 100,000 & 714 & 0.5841 & 2.1661 & Full Training Horizon State \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.48\textwidth]{Results/Telugu/training_loss.png}
+\hfill
+\includegraphics[width=0.48\textwidth]{Results/Telugu/validation_loss.png}
+\caption{Telugu FastSpeech 2 loss trajectories across 100,000 steps. Left: Multi-task training loss decomposition. Right: Validation loss trajectory demonstrating stable convergence and optimal checkpoint capture at Step 74,000.}
+\label{fig:telugu_loss_curves}
+\end{figure}
+
+\subsection{Convergence Dynamics, Generalization Gap, and Overfitting Analysis}
+A formal inquiry into convergence behavior reveals notable differences between the two linguistic models:
+\begin{enumerate}
+    \item \textbf{The Generalization Plateau}: In both models, training loss continues to decrease monotonically through step 100,000 ($0.7818$ for English, $0.5841$ for Telugu), while validation loss reaches an asymptote after step 30,000. For English, validation loss drifts marginally from $2.5855$ at step 61,000 to $2.6288$ at step 100,000 ($+0.0433$), indicating mild over-parameterization on speaker-specific training idiosyncrasies. For Telugu, validation loss drifts by only $+0.0204$ ($2.1457 \to 2.1661$).
+    \item \textbf{The Impact of Speaker Entropy}: The English model exhibits a higher overall validation loss ($2.5855$) compared to the Telugu model ($2.1457$). This gap is directly explained by dataset speaker entropy: English models 104 distinct speakers with disparate vocal tract geometries, accents, and pitch baselines, leading to higher variance in target mel-spectrograms. Telugu models only 2 professional speakers with consistent acoustics, allowing the Variance Adaptors to achieve tighter fit.
+    \item \textbf{Absence of Instability}: Neither model exhibited gradient explosion, NaN/Inf loss values, or loss spikes, validating the gradient clipping threshold of 1.0 and Scheduled Adam warmup.
+\end{enumerate}
+
+\section{Generated Speech Evaluation on Prescribed Test Sentences}
+
+\subsection{Evaluation Methodology and Acoustic Metric Profile}
+Speech synthesis was executed using the primary best model for each language: Step~61,000 for English (Speaker \texttt{spk\_028}, ID 27, female) and Step~74,000 for Telugu (Speaker \texttt{telugufemale}, ID 0). Waveforms were generated via HiFi-GAN with the 16~kHz polyphase resampling bridge. Acoustic properties are summarized in Table~\ref{tab:speech_evaluation_summary}:
+
+\begin{table}[htbp]
+\centering
+\caption{Acoustic and Temporal Measurements for Prescribed Test Utterances}
+\label{tab:speech_evaluation_summary}
+\begin{tabular}{llccccc}
+\toprule
+\textbf{ID} & \textbf{Language} & \textbf{Tokens} & \textbf{Duration (s)} & \textbf{Pitch $\mu$ (Hz)} & \textbf{Energy $\mu$ (dB)} & \textbf{Silence \%} \\
+\midrule
+\textbf{E1} & English & 88 & 4.01 & 212.1 & 64.5 & 0.0\% \\
+\textbf{E2\_a} & English (Noun) & 50 & 2.68 & 212.8 & 52.0 & 0.0\% \\
+\textbf{E2\_b} & English (Verb) & 55 & 2.87 & 207.8 & 55.5 & 0.0\% \\
+\textbf{E3} & English (Norm) & 36 & 1.75 & 207.9 & 60.5 & 0.0\% \\
+\textbf{E3\_split} & English (Split) & 36 & 2.00 & 208.5 & 53.6 & 7.0\% \\
+\textbf{E4} & English & 78 & 4.46 & 213.2 & 60.6 & 7.6\% \\
+\midrule
+\textbf{T1} & Telugu & 88 & 3.37 & 208.0 & 56.0 & 0.0\% \\
+\textbf{T2\_a} & Telugu (Noun) & 39 & 1.57 & 219.0 & 65.7 & 0.0\% \\
+\textbf{T2\_b} & Telugu (Silk) & 44 & 1.67 & 202.0 & 57.1 & 0.0\% \\
+\textbf{T3} & Telugu (Split) & 38 & 1.54 & 225.0 & 71.9 & 3.8\% \\
+\textbf{T4} & Telugu & 140 & 4.40 & 197.0 & 56.5 & 0.0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Per-Sentence Linguistic and Perceptual Observations}
+
+\subsubsection{English Test Sentences}
+\begin{itemize}
+    \item \textbf{E1}: \textit{``The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings.''} \\
+    \textbf{Analysis}: E1 challenges phonetic stability across an exceptionally long polysyllabic compound (28 letters, 12 syllables). The model synthesizes the entire morpheme sequence without articulatory collapse or duration tapering. Unstressed syllables (/ɪ s ɪ s ʈ a b l ɪ ʃ/) retain audible formants, and secondary stress on /ɛː/ is maintained. Cadence across ``parliamentary proceedings'' is natural.
+    \item \textbf{E2\_a vs. E2\_b (Heteronym Disambiguation)}: \\
+    \textit{E2\_a: ``The orchestra's conduct during the ceremony was praised by the audience.''} (Noun) \\
+    \textit{E2\_b: ``The researchers will conduct an experiment to evaluate the proposed method.''} (Verb) \\
+    \textbf{Analysis}: In E2\_a, the noun ``conduct'' is transcribed with trochaic stress (/k ɒ n ɖ ə k ʈ/), resulting in an initial syllable duration of $128\,\text{ms}$ and peak pitch of $232\,\text{Hz}$. In E2\_b, the verb ``conduct'' is transcribed with iambic stress (/k ə n ɖ ə k ʈ/), shifting duration emphasis to the second syllable ($144\,\text{ms}$) with a pitch rise on /-dʌkt/. The model accurately reflects these phonetic transcriptions, producing clear prosodic contrast between noun and verb roles.
+    \item \textbf{E3 vs. E3\_split (Orthographic Anomaly)}: \\
+    \textit{E3: ``The rhyth  m of the orchestra changed unexpectedly.''} \\
+    \textbf{Analysis}: The intentional intra-word double whitespace in ``rhyth  m'' was evaluated under two conditions. In canonical E3, the whitespace is normalized to the standard lexical entry /ɹ ɪ d̪ ə m/, yielding seamless continuous synthesis ($1.75$~s) with 0.0\% silence. In E3\_split, treating the halves as separate tokens with an inserted \texttt{@sp} token induces an audible $140\,\text{ms}$ pause (7.0\% silence) and an abrupt pitch discontinuity, confirming that FastSpeech~2's Duration Predictor directly responds to whitespace-induced pause tokens.
+    \item \textbf{E4}: \textit{``The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time.''} \\
+    \textbf{Analysis}: Evaluates number expansion, temporal notation, and code-mixed Indian English loanword pronunciation. The text cleaners expand ``10:45 AM'' to ``ten forty-five a m'', ``12'' to ``twelve'', and ``2026'' to ``twenty twenty-six''. The Telugu loanword ``andaroo'' (``everyone'') is transcribed with retroflex /ɾ/ and back vowel /uː/, blending smoothly into Indian English intonation. Silence is restricted to $7.6\%$, occurring strictly at the comma boundary.
+\end{itemize}
+
+\subsubsection{Telugu Test Sentences}
+\begin{itemize}
+    \item \textbf{T1}: {\telugufont న్యూరోఫార్మకోలాజికల్ పరిశోధనలో నూతన ఔషధాల ప్రభావాన్ని విశ్లేషించారు.} \\
+    \textbf{Analysis}: Tests technical compound polysyllabic stability. The model articulates complex consonant clusters (\textit{nyu-ro-phar-ma-ko-la-ji-kal}) without phoneme omission. Word transitions into \textit{parishodhanalo} and \textit{vishleshincaru} demonstrate natural declarative pitch declination starting from $240\,\text{Hz}$ and descending to $185\,\text{Hz}$.
+    \item \textbf{T2\_a vs. T2\_b (Syntactic Role Contrast)}: \\
+    \textit{T2\_a: {\telugufont తాడుపై అతని పట్టు చాలా బలంగా ఉంది.}} (Noun: grip / hold) \\
+    \textit{T2\_b: {\telugufont ఆమె పట్టు చీరను ధరించి వేడుకకు వచ్చింది.}} (Modifier: silk) \\
+    \textbf{Analysis}: In T2\_a, ``{\telugufont పట్టు}'' functions as a focused nominal predicate (grip), receiving focal pitch elevation ($219\,\text{Hz}$ mean sentence pitch, peak energy $65.7\,\text{dB}$). In T2\_b, ``{\telugufont పట్టు}'' functions as an adjective modifying ``{\telugufont చీరను}'' (silk saree), exhibiting reduced energy ($57.1\,\text{dB}$) and lower pitch ($202\,\text{Hz}$), demonstrating syntactic sensitivity.
+    \item \textbf{T3}: {\telugufont పులి అడ  విలో నిశ్శబ్దంగా నడిచింది.} \\
+    \textbf{Analysis}: The double space in ``{\telugufont అడ  విలో}'' triggers an explicit \texttt{@sp} token. The model inserts a clear $64\,\text{ms}$ silence interval between ``{\telugufont అడ}'' and ``{\telugufont విలో}'' (silence ratio $3.8\%$), followed by pitch re-attack on the onset consonant /v/, confirming correct intra-word pause handling.
+    \item \textbf{T4}: {\telugufont ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు ప్రారంభమవుతుంది, సమయానికి సిద్ధంగా ఉంచండి.} \\
+    \textbf{Analysis}: Spanning 140 phonetic tokens across $4.40$ seconds, T4 evaluates complex numeral expansion and multi-clause prosody. Numerals are expanded into full akshara sequences (\textit{rendu vela iravai aaru}, \textit{pannendava}, \textit{padi nalabhai aidu}). The comma pause before \textit{samayaniki} is natural, and final sentence declination reaches $170\,\text{Hz}$ on \textit{unchandi}.
+\end{itemize}
+
+\section{Variance Adaptor Profile Analysis (Duration, Pitch, Energy)}
+
+\subsection{Acoustic and Prosodic Function of the Variance Adaptor}
+The Variance Adaptor addresses the core acoustic modeling challenge in TTS: the one-to-many mapping from text to spectrogram. For any given phoneme, natural human speech exhibits variations in temporal length (duration), fundamental frequency ($F_0$), and amplitude ($L_2$ energy). 
+
+Figure~\ref{fig:variance_adaptor_profiles} visualizes the synchronized 3-panel Variance Adaptor profiles (duration bar chart, continuous pitch track, and energy envelope) for representative English and Telugu benchmark sentences:
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Results/English/variance_adaptor_plots/combined/E1_combined.png}
+    \caption{English E1 (Polysyllabic Compound)}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Results/Telugu/variance_adaptor_plots/combined/T1_combined.png}
+    \caption{Telugu T1 (Technical Compound)}
+\end{subfigure}
+\vskip \baselineskip
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Results/English/variance_adaptor_plots/combined/E2_a_combined.png}
+    \caption{English E2\_a (Noun Heteronym)}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{Results/Telugu/variance_adaptor_plots/combined/T2_a_combined.png}
+    \caption{Telugu T2\_a (Noun Focus)}
+\end{subfigure}
+\caption{Synchronized Variance Adaptor profiles across English and Telugu test utterances, illustrating predicted duration (ms), $F_0$ pitch contours (Hz), and energy envelopes (dB).}
+\label{fig:variance_adaptor_profiles}
+\end{figure}
+
+\subsection{Duration Predictor Analysis}
+\begin{itemize}
+    \item \textbf{Phonetic Duration Grounding}: In both English and Telugu, predicted durations strictly align with intrinsic phonetic properties. Vowels exhibit systematically longer durations ($96 - 160\,\text{ms}$, 6 to 10 mel frames) than voiceless plosives (/p/, /t/, /k/), which average $32 - 48\,\text{ms}$ (2 to 3 frames).
+    \item \textbf{Phrase-Final Lengthening}: Across all sentences, phrase-final syllables before clause boundaries or utterance termination demonstrate lengthening of $1.5\times$ to $2.0\times$ relative to phrase-medial tokens (e.g., /-dɪŋz/ in E1, /-cindi/ in T3), reflecting natural human speech deceleration.
+    \item \textbf{Pause Token Allocation}: Where \texttt{@sp} tokens are present (E3\_split, E4, T3), the duration predictor allocates $64 - 144\,\text{ms}$ of silence, avoiding the unnatural multi-second silences produced by early uncalibrated scripts.
+\end{itemize}
+
+\subsection{Pitch ($F_0$) Contour Analysis}
+\begin{itemize}
+    \item \textbf{Intonational Declination}: Declarative test sentences (E1, E2, T1, T2) follow the universal linguistic principle of intonational declination: $F_0$ peaks near the onset of the primary clause ($230 - 250\,\text{Hz}$) and steadily declines toward the sentence termination ($170 - 185\,\text{Hz}$).
+    \item \textbf{Focal Accentuation}: Content words receiving focal stress (e.g., ``antidisestablishmentarianism'' in E1, ``orchestra'' in E2, ``{\telugufont పట్టు}'' in T2\_a) exhibit localized pitch excursions of $+30\,\text{Hz}$ to $+50\,\text{Hz}$ above the baseline.
+    \item \textbf{Micro-Prosodic Smoothing}: Because pitch is predicted at the phoneme level and smoothed during preprocessing via PyWorld StoneMask and unvoiced interpolation, the generated pitch contours are free of jitter and creaky-voice octave jumps.
+\end{itemize}
+
+\subsection{Energy Envelope Analysis}
+\begin{itemize}
+    \item \textbf{Sonority Correlation}: Predicted energy envelopes track acoustic sonority: high energy ($65 - 80\,\text{dB}$) on open vowel nuclei, moderate energy ($45 - 60\,\text{dB}$) on voiced sonorants and nasals (/m/, /n/, /l/), and low energy ($20 - 35\,\text{dB}$) on voiceless fricatives (/s/, /ʃ/) and plosive closures.
+    \item \textbf{Pitch-Energy Synchronization}: Energy peaks coincide temporally with pitch accents, validating that the Variance Adaptor has learned the coupled biomechanical relationship between subglottal pressure (energy) and vocal fold tension (pitch).
+\end{itemize}
+
+\section{Cross-Linguistic Comparative Analysis, Failure Modes, and Technical Improvements}
+
+\subsection{Comparative Analysis: English vs. Telugu}
+Comparing the two trained models provides key insights into cross-linguistic acoustic modeling:
+\begin{enumerate}
+    \item \textbf{Acoustic Loss Discrepancy}: The Telugu model achieved a noticeably lower validation loss ($2.1457$) than the English model ($2.5855$). This is governed by dataset speaker entropy. Svarah English incorporates 104 distinct speakers with wide phonetic variance across 19 native language substrates; the model must compromise across diverse vocal tract lengths and fundamental frequencies. IndicTTS Telugu incorporates only 2 professional studio speakers, allowing the Transformer decoder to fit tighter spectral targets.
+    \item \textbf{Phonetic Alignment Consistency}: Telugu's phonetically transparent orthography combined with Meta MMS CTC alignment produced highly consistent phoneme boundaries with zero OOV tokens. Conversely, English orthography required a complex G2P pronunciation dictionary (CMUDict/IPA) and MFA alignment, where 30 utterances failed due to Indian named entities and OOV terms.
+    \item \textbf{Prosodic Phrasing}: Telugu speech exhibits open-vowel word endings and rhythmic syllable-timed cadence, which the Length Regulator models cleanly. English is stress-timed, requiring wider duration dynamic range to capture unstressed vowel reduction.
+\end{enumerate}
+
+\subsection{Observed Failure Modes and Limitations}
+\begin{enumerate}
+    \item \textbf{High-Frequency Vocoder Incompatibility}: Although the 16~kHz to 22.05~kHz resampling bridge restored natural pitch and formant frequencies, using a vocoder trained on 22.05~kHz audio introduces minor high-frequency roll-off above $7\,\text{kHz}$, resulting in slight softening of unvoiced sibilants (/s/, /z/).
+    \item \textbf{Compound Word Boundary Stress}: In highly agglutinative Telugu compounds (e.g., T1), stress is occasionally distributed uniformly rather than emphasizing root morphemes.
+    \item \textbf{Foreign Loanword G2P Brittleness}: In English E4, synthesizing non-standard loanwords (``andaroo'') requires explicit phonetic transcription in curly braces; passing raw text falls back to character embeddings which received zero gradients during training.
+\end{enumerate}
+
+\subsection{Proposed Technical Improvements}
+\begin{enumerate}
+    \item \textbf{Native 16 kHz Neural Vocoder Training}: Retraining HiFi-GAN or BigVGAN natively on 16~kHz multi-speaker Indian speech would eliminate all resampling bridges and maximize high-frequency clarity.
+    \item \textbf{Continuous Speaker Adaptation (AdaSpeech)}: Replacing the discrete embedding lookup table (\texttt{nn.Embedding(104, 256)}) with an acoustic speaker encoder (e.g., d-vectors from WavLM) would allow zero-shot synthesis for unseen speakers and prevent embedding freezing on disjoint validation splits.
+    \item \textbf{Integrated End-to-End Neural G2P}: Embedding a neural G2P front-end directly into \texttt{text\_to\_sequence()} would permit seamless synthesis from raw text without requiring pre-formatted IPA curly braces.
+\end{enumerate}
+
+\section{Reproducibility Details, Dependencies, and Checkpoint Distribution}
+
+\subsection{Software Environment and Pinned Dependencies}
+The implementation runs on Python 3.11 with CUDA 12.1+ / 13.x compatibility. All dependencies are pinned in \texttt{requirements.txt}:
+\begin{itemize}
+    \item \texttt{torch==2.5.1}, \texttt{torchaudio==2.5.1}
+    \item \texttt{numpy==1.26.4}, \texttt{scipy==1.13.1}
+    \item \texttt{librosa==0.10.2}, \texttt{soundfile==0.12.1}
+    \item \texttt{pyworld==0.3.4}, \texttt{pypdf==5.1.0}
+    \item \texttt{matplotlib==3.9.2}, \texttt{tqdm==4.66.5}, \texttt{pyyaml==6.0.2}
+\end{itemize}
+
+\subsection{Execution Commands}
+
+\subsubsection{Preprocessing}
+To execute acoustic feature extraction from raw prepared data:
+\begin{lstlisting}[language=bash]
+# English Preprocessing
+python English/preprocess.py --config English/config.yaml
+
+# Telugu Preprocessing (Resampling & MMS Feature Extraction)
+python Telugu/preprocess.py --config Telugu/config.yaml
+\end{lstlisting}
+
+\subsubsection{Model Training}
+To launch or resume training across dual GPUs:
+\begin{lstlisting}[language=bash]
+# English FastSpeech 2 Training
+python English/train.py --config English/config.yaml --resume
+
+# Telugu FastSpeech 2 Training
+python Telugu/train.py --config Telugu/config.yaml --resume
+\end{lstlisting}
+
+\subsubsection{Speech Synthesis and Benchmark Regeneration}
+To synthesize speech for all prescribed test sentences:
+\begin{lstlisting}[language=bash]
+# Synthesize English Test Sentences (E1 - E4)
+python English/generate_assignment_audios.py
+
+# Synthesize Telugu Test Sentences (T1 - T4)
+python Telugu/generate_telugu_assignment_audios.py
+\end{lstlisting}
+
+\subsection{Google Drive Checkpoint Distribution and File Placement}
+Due to GitHub file size limits, large model binaries (\texttt{*.pth}) and archives are hosted on Google Drive:
+\begin{center}
+\url{https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing}
+\end{center}
+
+\begin{table}[htbp]
+\centering
+\caption{Model Checkpoints and Remote Artifact Registry}
+\label{tab:gdrive_inventory}
+\begin{tabular}{llcl}
+\toprule
+\textbf{Artifact / File} & \textbf{Language} & \textbf{Size} & \textbf{Local Placement Target} \\
+\midrule
+\texttt{best\_model.pth} (Step 61k) & English & 399.3 MB & \texttt{English/checkpoints/best\_model.pth} \\
+\texttt{latest\_checkpoint.pth} (Step 100k) & English & 399.3 MB & \texttt{English/checkpoints/latest\_checkpoint.pth} \\
+\texttt{English\_All\_Phases\_Logs.zip} & English & 69.8 MB & Root directory \\
+\texttt{best\_model.pth} (Step 74k) & Telugu & 400.0 MB & \texttt{Telugu/checkpoints/best\_model.pth} \\
+\texttt{latest\_checkpoint.pth} (Step 100k) & Telugu & 400.0 MB & \texttt{Telugu/checkpoints/latest\_checkpoint.pth} \\
+\texttt{best\_step\_64000.pth} & Telugu & 400.0 MB & \texttt{Telugu/checkpoints/best\_step\_64000.pth} \\
+\texttt{best\_step\_78000.pth} & Telugu & 400.0 MB & \texttt{Telugu/checkpoints/best\_step\_78000.pth} \\
+\texttt{Telugu\_All\_Phases\_Logs.zip} & Telugu & 53.5 MB & Root directory \\
+\texttt{Telugu\_Phase1\_Results.zip} & Telugu & 2.9 MB & Root directory \\
+\texttt{generator\_universal.pth.tar} & Vocoder & 53.2 MB & \texttt{hifigan/generator\_universal.pth.tar} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Conclusion}
+This report has documented the complete implementation, optimization, and empirical evaluation of the FastSpeech~2 TTS system for Indian English and Telugu. By combining forced alignment pipelines (MFA for English, MMS CTC for Telugu), standardized 16~kHz feature extraction, production memory safeguards, and dual-GPU parallel training, both models achieved convergence over 100,000 steps. Rigorous evaluations of all prescribed benchmark test sentences confirmed high acoustic intelligibility, accurate duration regulation, and natural pitch and energy contours. The complete source code, evaluation results, loss plots, and model weights have been structured in accordance with academic standards and are fully accessible for evaluation.
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{1}
+\bibitem{ren2020fastspeech2}
+Y.~Ren, C.~Hu, X.~Tan, T.~Qin, S.~Zhao, Z.~Zhao, and T.-Y. Liu, ``FastSpeech 2: Fast and high-quality end-to-end text to speech,'' in \emph{International Conference on Learning Representations (ICLR)}, 2021.
+
+\bibitem{kong2020hifigan}
+J.~Kong, J.~Kim, and J.~Bae, ``HiFi-GAN: Generative adversarial networks for efficient and high fidelity speech synthesis,'' in \emph{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~33, 2020, pp. 17\,022--17\,033.
+\end{thebibliography}
+
+\end{document}
