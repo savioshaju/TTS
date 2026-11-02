@@ -92,3 +92,7 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
+
+# Logs staging and archive
+English_All_Phases_Logs/
+
