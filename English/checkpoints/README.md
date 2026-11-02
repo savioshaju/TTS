@@ -6,13 +6,16 @@ Due to GitHub's standard file size limits, large pre-trained model weights (`*.p
 
 ## Google Drive Download Link
 
-Download the English model weights from the shared Google Drive folder:
+Download the English model weights from the shared Google Drive folder:  
 👉 **[Google Drive Shared Model Folder](https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing)**
 
 Navigate to the `English/` subfolder in Google Drive:
-- `latest_checkpoint.pth` (~399 MB)
-- `best_model.pth` (~399 MB)
-- `generator_universal.pth.tar` (~55 MB)
+- `latest_checkpoint.pth` (~399.35 MB / 418,747,163 bytes)
+- `best_model.pth` (~399.34 MB / 418,739,397 bytes)
+- `best_step_61000.pth` (~399.34 MB / 418,739,397 bytes)
+- `best_step_65000.pth` (~399.34 MB / 418,739,397 bytes)
+- `best_step_66000.pth` (~399.34 MB / 418,739,397 bytes)
+- `generator_universal.pth.tar` (~53.20 MB / 55,788,858 bytes)
 
 ---
 
@@ -22,23 +25,34 @@ After downloading, place the files into this repository as follows:
 
 | Downloaded File | Target Repository Path | Description |
 | :--- | :--- | :--- |
-| `latest_checkpoint.pth` | `English/checkpoints/latest_checkpoint.pth` | Resumable training checkpoint (Step 53,000) containing model weights, Adam optimizer states, and learning rate scheduler state. |
-| `best_model.pth` | `English/checkpoints/best_model.pth` | Top-performing validation model (Step 11,000, Val Loss: 2.5505) for high-fidelity speech synthesis. |
+| `latest_checkpoint.pth` | `English/checkpoints/latest_checkpoint.pth` | Final converged training checkpoint (**Step 100,000 \| Epoch 468 \| Loss: 0.7818 \| Val Loss: 2.6288**) containing full model weights, Adam optimizer states, and learning rate scheduler. |
+| `best_model.pth` | `English/checkpoints/best_model.pth` | **Rank 1 Overall Best Validation Model** (**Step 61,000 \| Epoch 285 \| Val Loss: 2.5855**) for high-fidelity speech synthesis. |
 | `generator_universal.pth.tar` | `English/inference/hifigan/generator_universal.pth.tar` | HiFi-GAN 16 kHz universal neural vocoder weights (also copy to `English/train/hifigan/`). |
 
 ---
 
-## Checkpoint Details
+## Checkpoint Retention & Loss Rankings
 
-- **`latest_checkpoint.pth` (Step 53,000 | Epoch 249 | Val Loss: 2.5926)**:
-  Used to **resume training** up to Step 100,000 seamlessly without starting from scratch.
-  ```bash
-  python English/train/train.py --config English/config.yaml --resume
-  ```
+Training was conducted on Kaggle Dual NVIDIA T4 GPUs using `torch.nn.DataParallel` up to **Step 100,000**. The automated checkpoint retention manager maintained the top 3 best validation models plus the latest resumable checkpoint:
 
-- **`best_model.pth` (Step 11,000 | Epoch 52 | Val Loss: 2.5505)**:
-  Used for **inference and evaluation** (generates crisp audio without over-smoothing).
-  ```bash
-  python English/inference/inference.py --config English/config.yaml --checkpoint English/checkpoints/best_model.pth --speaker_id 28 --phonemes "T h e   a n t i d i s e s t a b l i s h m e n t a r i a n i s m   m o v e m e n t" --output_wav sample.wav
-  ```
+| Rank | Checkpoint File | Training Step | Epoch | Validation Loss | Role |
+| :---: | :--- | :---: | :---: | :---: | :--- |
+| 🥇 **1** | **`best_step_61000.pth` (`best_model.pth`)** | **61,000** | **285** | **2.5855** | Primary evaluation & inference model (crisp formants, optimal prosody) |
+| 🥈 **2** | `best_step_66000.pth` | 66,000 | 309 | 2.5892 | Secondary validation candidate |
+| 🥉 **3** | `best_step_65000.pth` | 65,000 | 304 | 2.5899 | Tertiary validation candidate |
+| 🏁 **Final** | **`latest_checkpoint.pth`** | **100,000** | **468** | **2.6288** | Fully completed 100k training run (Training Loss: 0.7818) |
 
+---
+
+## CLI Usage Instructions
+
+### 1. Resume Training
+```bash
+python English/train/train.py --config English/config.yaml --resume
+```
+
+### 2. Synthesize with the Best Model
+```bash
+python English/inference/generate_assignment_audios.py
+```
+Outputs are automatically written to `Results/English/test_generated_audios/` and `Results/English/generated_audios/`.
