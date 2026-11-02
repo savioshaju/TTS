@@ -274,26 +274,25 @@ python Telugu/inference/inference.py \
     --output_wav Results/Telugu/generated_audios/output.wav
 ```
 
-### Custom Arbitrary Text Synthesis (Calibrated Phase 4 Pipeline)
-Synthesize custom arbitrary English sentences directly from raw text without manual phoneme transcription. The script dynamically performs MFA dictionary lookup (`english_india_mfa.dict`), punctuation-to-pause mapping (`@sp`), name/domain overrides, post-scaling rounding, and selective vowel nucleus duration protection:
+### Custom Text Synthesis (English & Telugu)
+To synthesize arbitrary custom sentences from the command line:
 
+#### English Custom Synthesis
 ```bash
-# General text synthesis example
-python synthesize_custom.py \
-    --text "Hi, I am Savio." \
-    --output custom_synthesize/hi_i_am_savio.wav
+# Synthesize custom English text
+python synthesize_custom.py --text "Hi, I am Savio." --output custom_synthesize/hi_i_am_savio.wav
 
-# Multi-clause sentence with custom duration scaling and speaker selection
-python synthesize_custom.py \
-    --text "Good morning, welcome to our speech synthesis demonstration." \
-    --speaker_id 27 \
-    --d_control 1.25 \
-    --output custom_synthesize/demo.wav
+# Optional: adjust duration speed (d_control) or speaker
+python synthesize_custom.py --text "Good morning, welcome to our speech synthesis demonstration." --d_control 1.25 --speaker_id 27 --output custom_synthesize/demo_en.wav
+```
 
-# Direct explicit phoneme override
-python synthesize_custom.py \
-    --phonemes "{h aj @sp aj a m s aː ʋ i oː @sp}" \
-    --output custom_synthesize/savio_phonemes.wav
+#### Telugu Custom Synthesis
+```bash
+# Synthesize custom Telugu text
+python Telugu/synthesize_custom.py --text "నమస్కారం, మీరు ఎలా ఉన్నారు?" --output custom_synthesize/telugu_sample.wav
+
+# Optional: adjust duration speed (d_control)
+python Telugu/synthesize_custom.py --text "ఈ రోజు వాతావరణం చాలా బాగుంది." --d_control 1.25 --output custom_synthesize/weather_te.wav
 ```
 
 ### Regenerate Assignment Test Sentences
