@@ -730,7 +730,13 @@ def train(args):
             if "rng_state" in recovered_ckpt and recovered_ckpt["rng_state"]:
                 rng = recovered_ckpt["rng_state"]
                 if "torch" in rng and rng["torch"] is not None:
-                    torch.set_rng_state(rng["torch"])
+                    try:
+                        t_state = rng["torch"]
+                        if isinstance(t_state, torch.Tensor):
+                            t_state = t_state.to(torch.uint8).cpu()
+                        torch.set_rng_state(t_state)
+                    except Exception as e:
+                        print(f"[Warning] Skipped torch RNG restoration: {e}")
                 if "cuda" in rng and rng["cuda"] is not None and torch.cuda.is_available():
                     try:
                         torch.cuda.set_rng_state_all(rng["cuda"])
