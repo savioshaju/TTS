@@ -14,7 +14,12 @@ from math import gcd
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if os.path.basename(SCRIPT_DIR) == "English":
+    BASE_DIR = os.path.dirname(SCRIPT_DIR)
+else:
+    BASE_DIR = SCRIPT_DIR
+
 FASTSPEECH2_DIR = os.path.join(BASE_DIR, "FastSpeech2-master")
 if FASTSPEECH2_DIR not in sys.path:
     sys.path.insert(0, FASTSPEECH2_DIR)
@@ -31,11 +36,6 @@ VOWELS = {
     'a', 'aj', 'aw', 'aː', 'e', 'ej', 'eː', 'i', 'iː', 'o', 'ow', 'oː', 
     'u', 'uː', 'æ', 'ɐ', 'ɑ', 'ɑː', 'ɒ', 'ɒː', 'ɔ', 'ɔj', 'ə', 'əw', 
     'ɚ', 'ɛ', 'ɛː', 'ɜ', 'ɜː', 'ɝ', 'ɪ', 'ʉ', 'ʉː', 'ʊ'
-}
-
-# Custom name and domain-specific dictionary overrides
-CUSTOM_DICTIONARY = {
-   
 }
 
 def load_mfa_lexicon():
@@ -66,9 +66,7 @@ def text_to_phonemes(text, lexicon):
             phone_list.append("@sp")
         else:
             w_lower = tok.lower()
-            if w_lower in CUSTOM_DICTIONARY:
-                phone_list.extend(CUSTOM_DICTIONARY[w_lower])
-            elif w_lower in lexicon:
+            if w_lower in lexicon:
                 phone_list.extend(lexicon[w_lower])
             else:
                 # Character-level fallback for unknown acronyms/names
