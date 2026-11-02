@@ -298,14 +298,26 @@ python Telugu/synthesize_custom.py --text "ఈ రోజు వాతావర�
 - **Energy Tracking Contours**: Located in `Results/English/variance_adaptor_plots/energy/` and `Results/Telugu/variance_adaptor_plots/energy/`.
 
 ### Training & Validation Loss Trajectories
-- **English Loss Curves (100k Steps)**:
-  [`Results/English/training_loss.png`](Results/English/training_loss.png) & [`Results/English/validation_loss.png`](Results/English/validation_loss.png)
-  - Phase 1 (Steps 100 – 53,700): [`Results/English/phase_1_loss.png`](Results/English/phase_1_loss.png)
-  - Phase 2 (Steps 53,100 – 100,000): [`Results/English/phase_2_loss.png`](Results/English/phase_2_loss.png)
-- **Telugu Loss Curves (100k Steps)**:
-  - Full 100k Trajectory: [`Results/Telugu/training_loss.png`](Results/Telugu/training_loss.png) & [`Results/Telugu/validation_loss.png`](Results/Telugu/validation_loss.png)
-  - Phase 1 (Steps 100 – 56,000): [`Results/Telugu/phase_1_loss.png`](Results/Telugu/phase_1_loss.png)
-  - Phase 2 (Steps 56,100 – 100,000): [`Results/Telugu/phase_2_loss.png`](Results/Telugu/phase_2_loss.png)
+
+#### English Loss Curves (100k Steps)
+
+| Training Loss | Validation Loss |
+| :---: | :---: |
+| ![English Training Loss](Results/English/training_loss.png) | ![English Validation Loss](Results/English/validation_loss.png) |
+
+| Phase 1 Loss (Steps 100 – 53,700) | Phase 2 Loss (Steps 53,100 – 100,000) |
+| :---: | :---: |
+| ![English Phase 1 Loss](Results/English/phase_1_loss.png) | ![English Phase 2 Loss](Results/English/phase_2_loss.png) |
+
+#### Telugu Loss Curves (100k Steps)
+
+| Training Loss | Validation Loss |
+| :---: | :---: |
+| ![Telugu Training Loss](Results/Telugu/training_loss.png) | ![Telugu Validation Loss](Results/Telugu/validation_loss.png) |
+
+| Phase 1 Loss (Steps 100 – 56,000) | Phase 2 Loss (Steps 56,100 – 100,000) |
+| :---: | :---: |
+| ![Telugu Phase 1 Loss](Results/Telugu/phase_1_loss.png) | ![Telugu Phase 2 Loss](Results/Telugu/phase_2_loss.png) |
 
 ### Formal Technical Report
 A comprehensive academic report detailing mathematical formulations, experimental setup, spectrogram analyses, and comparative findings is available at:
