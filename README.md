@@ -188,7 +188,7 @@ After downloading from the shared folder, place each file into its designated di
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/TTS.git
+git clone https://github.com/savioshaju/TTS
 cd TTS
 
 # Create and activate virtual environment
