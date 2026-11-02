@@ -720,6 +720,29 @@ def load_configs(args):
 # SECTION 7: MAIN TRAINING LOOP WITH MEMORY & CHECKPOINT CONTROLS
 # ==============================================================================
 
+def acquire_training_lock(ckpt_dir):
+    """
+    Acquires an exclusive OS-level file lock to guarantee that only ONE training
+    process runs at any time, preventing duplicate processes and GPU thrashing.
+    """
+    lock_path = os.path.join(ckpt_dir, ".training.lock")
+    try:
+        lock_file = open(lock_path, "a+")
+        if sys.platform != "win32":
+            import fcntl
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        else:
+            import msvcrt
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+        lock_file.seek(0)
+        lock_file.truncate()
+        lock_file.write(f"PID: {os.getpid()}\nStarted: {time.ctime()}\n")
+        lock_file.flush()
+        return lock_file
+    except (IOError, BlockingIOError, PermissionError):
+        return None
+
+
 def train(args):
     configs = load_configs(args)
     preprocess_config, model_config, train_config = configs
@@ -738,8 +761,18 @@ def train(args):
     os.makedirs(val_log_path, exist_ok=True)
     os.makedirs(result_path, exist_ok=True)
 
+    # ProcessGuard: Exclusive single-instance lock to prevent duplicate concurrent runs
+    lock_file = acquire_training_lock(ckpt_dir)
+    if lock_file is None:
+        print("\n" + "!" * 75)
+        print(f"[ProcessGuard] ERROR: Another training process is already active on {ckpt_dir}!")
+        print("[ProcessGuard] Aborting this duplicate invocation to prevent GPU contention and checkpoint corruption.")
+        print("!" * 75 + "\n", flush=True)
+        sys.exit(0)
+
     print("=" * 70)
     print("Multi-Speaker English FastSpeech 2 Training")
+    print(f"Process PID:        {os.getpid()} (Parent PID: {os.getppid()})")
     print(f"Device:             {device}")
     print(f"Preprocessed Data:  {preprocess_config['path']['preprocessed_path']}")
     print(f"Checkpoint Output:  {ckpt_dir}")
@@ -1021,6 +1054,19 @@ def train(args):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             epoch += 1
+
+    finally:
+        try:
+            if 'lock_file' in locals() and lock_file is not None:
+                if sys.platform != "win32":
+                    import fcntl
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+                lpath = os.path.join(ckpt_dir, ".training.lock")
+                if os.path.exists(lpath):
+                    os.remove(lpath)
+        except Exception:
+            pass
 
     except KeyboardInterrupt:
         print("\n[Interrupt] Training interrupted by user or environment. Saving latest emergency checkpoint...")
