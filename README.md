@@ -96,7 +96,7 @@ TTS/
 │   ├── English/
 │   │   ├── training_loss.png         # Training loss trajectory (Total, Mel, PostNet, Variance)
 │   │   ├── validation_loss.png       # Validation loss trajectory
-│   │   ├── generated_audios/         # Generated speech samples (E1.wav to E4.wav)
+│   │   ├── generated_audios/         # Official benchmark audio outputs (E1.wav to E4.wav)
 │   │   └── variance_adaptor_plots/
 │   │       ├── duration/             # Duration prediction alignment plots
 │   │       ├── pitch/                # F0 pitch contour tracking plots
@@ -104,7 +104,7 @@ TTS/
 │   └── Telugu/
 │       ├── training_loss.png         # Training loss trajectory
 │       ├── validation_loss.png       # Validation loss trajectory
-│       ├── generated_audios/         # Generated speech samples (T1.wav to T4.wav)
+│       ├── generated_audios/         # Official benchmark audio outputs (T1.wav to T4.wav)
 │       └── variance_adaptor_plots/
 │           ├── duration/             # Duration prediction alignment plots
 │           ├── pitch/                # F0 pitch contour tracking plots
@@ -406,7 +406,7 @@ python English/synthesize_custom.py --text "Good morning, welcome to our speech 
 #### Telugu Custom Synthesis
 ```bash
 # Synthesize custom Telugu text
-python Telugu/synthesize_custom.py --text "నమస్కారం, మీరు ఎలా ఉన్నారు?" --output custom_synthesize/telugu_sample.wav
+python Telugu/synthesize_custom.py --text "నమస్కారం, మీరు ఎలా ఉన్నారు?" --output custom_synthesize/telugu_custom.wav
 
 # Optional: adjust duration speed (d_control)
 python Telugu/synthesize_custom.py --text "ఈ రోజు వాతావరణం చాలా బాగుంది." --d_control 1.25 --output custom_synthesize/weather_te.wav
