@@ -24,7 +24,12 @@ if os.path.basename(SCRIPT_DIR) == "Telugu":
 else:
     BASE_DIR = SCRIPT_DIR
 
-PKG_DIR = os.path.join(BASE_DIR, "kaggle_staging", "Telugu_FastSpeech2_Kaggle")
+PKG_DIR = os.path.join(SCRIPT_DIR, "inference")
+if not os.path.exists(PKG_DIR):
+    PKG_DIR = os.path.join(BASE_DIR, "kaggle_staging", "Telugu_FastSpeech2_Kaggle")
+if not os.path.exists(PKG_DIR):
+    PKG_DIR = os.path.join(BASE_DIR, "FastSpeech2-master")
+
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
 if SCRIPT_DIR not in sys.path:

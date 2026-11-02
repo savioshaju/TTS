@@ -24,7 +24,9 @@ from scipy.io import wavfile
 sys.stdout.reconfigure(encoding='utf-8')
 
 BASE_DIR = r"D:\Savio Shaju\TTS"
-PKG_DIR  = os.path.join(BASE_DIR, "kaggle_staging", "Telugu_FastSpeech2_Kaggle")
+PKG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "inference")
+if not os.path.exists(PKG_DIR):
+    PKG_DIR = os.path.join(BASE_DIR, "kaggle_staging", "Telugu_FastSpeech2_Kaggle")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
 TELUGU_DIR = os.path.join(BASE_DIR, "Telugu")
