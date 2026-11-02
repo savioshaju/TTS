@@ -37,6 +37,7 @@ if SCRIPT_DIR not in sys.path:
 
 from model import FastSpeech2
 from utils.model import get_vocoder
+from utils.tools import get_mask_from_lengths
 from text import text_to_sequence
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -63,6 +64,10 @@ TELUGU_CONSONANTS = {
 VIRAMA = '\u0c4d'
 ANUSVARA = '\u0c02'
 VISARGA = '\u0c03'
+
+TELUGU_VOWEL_TOKENS = {
+    '@a', '@aa', '@i', '@ii', '@u', '@uu', '@ru', '@e', '@ee', '@ai', '@o', '@oo', '@au'
+}
 
 def telugu_to_tokens(text):
     text = unicodedata.normalize('NFC', text)
@@ -127,7 +132,14 @@ def main():
     parser.add_argument("--phonemes", type=str, default=None, help="Explicit phoneme string (overrides text)")
     parser.add_argument("--output", type=str, default="custom_synthesize/telugu_custom.wav", help="Output WAV path")
     parser.add_argument("--speaker_id", type=int, default=0, help="Speaker ID (default 0 = telugufemale)")
-    parser.add_argument("--d_control", type=float, default=1.25, help="Duration control speed factor")
+    parser.add_argument("--d_control", type=float, default=1.25, help="Duration control speed factor (default: 1.25 for calibrated clarity)")
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="duration_improved",
+        choices=["baseline", "duration_improved"],
+        help="Inference clarity mode: 'duration_improved' (default, vowel-protected) or 'baseline'",
+    )
     args = parser.parse_args()
 
     # 1. Phonemes
@@ -138,6 +150,7 @@ def main():
         tokens = telugu_to_tokens(args.text)
         phone_str = "{" + " ".join(tokens) + "}"
         print(f"Input text: '{args.text}'")
+        print(f"Mode: {args.mode}")
         print(f"Derived phonemes: {phone_str}")
 
     # 2. Config & Model
@@ -176,7 +189,8 @@ def main():
     print("Loading HiFi-GAN Vocoder...")
     vocoder = get_vocoder(model_config, device)
 
-    # 3. Inference
+    # 3. Inference with calibrated duration control
+    tokens = [p for p in phone_str.strip("{}").split() if p]
     seq = np.array(text_to_sequence(phone_str, cleaners))
     txt_tensor = torch.from_numpy(np.array([seq])).long().to(device)
     txt_lens = torch.from_numpy(np.array([len(seq)])).long().to(device)
@@ -184,11 +198,40 @@ def main():
     max_len = max(txt_lens).item()
 
     with torch.no_grad():
-        output = model(
-            spk_tensor, txt_tensor, txt_lens, max_len,
-            p_control=1.0, e_control=1.0, d_control=args.d_control
-        )
-        mel_pred = output[1].transpose(1, 2)
+        src_mask = get_mask_from_lengths(txt_lens, max_len)
+        output = model.encoder(txt_tensor, src_mask)
+        if model.speaker_emb is not None:
+            output = output + model.speaker_emb(spk_tensor).unsqueeze(1).expand(-1, max_len, -1)
+            
+        # Duration prediction based on selectable mode
+        log_d = model.variance_adaptor.duration_predictor(output, src_mask)
+        d_raw = torch.clamp(torch.exp(log_d) - 1, min=0).squeeze(0)
+        
+        if args.mode == "baseline":
+            d_base = torch.round(d_raw)
+            d_scaled = torch.clamp(torch.round(d_base * args.d_control), min=0)
+        else:
+            # Calibrated duration regulation + selective vowel nucleus protection
+            d_scaled = torch.round(d_raw * args.d_control)
+            for idx, tok in enumerate(tokens):
+                if tok in TELUGU_VOWEL_TOKENS and d_scaled[idx] < 2.0:
+                    d_scaled[idx] = 2.0
+                    
+        d_scaled_batch = d_scaled.unsqueeze(0)
+        
+        # Pitch and energy
+        _, pitch_emb = model.variance_adaptor.get_pitch_embedding(output, None, src_mask, 1.0)
+        output = output + pitch_emb
+        _, energy_emb = model.variance_adaptor.get_energy_embedding(output, None, src_mask, 1.0)
+        output = output + energy_emb
+        
+        # Length regulation & decoder
+        output, mel_len = model.variance_adaptor.length_regulator(output, d_scaled_batch, None)
+        mel_mask = get_mask_from_lengths(mel_len)
+        mel_output, mel_mask = model.decoder(output, mel_mask)
+        mel_output = model.mel_linear(mel_output)
+        postnet_output = model.postnet(mel_output) + mel_output
+        mel_pred = postnet_output.transpose(1, 2)
         
         # Vocoder generation & 16kHz resampling
         wav = vocoder(mel_pred).squeeze(1).cpu().numpy()[0]

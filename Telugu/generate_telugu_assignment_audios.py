@@ -36,9 +36,15 @@ if SCRIPT_DIR not in sys.path:
 from model import FastSpeech2
 import hifigan
 from utils.model import vocoder_infer, get_vocoder
+from utils.tools import get_mask_from_lengths
 from text import text_to_sequence
 import unicodedata
 import re
+import argparse
+
+TELUGU_VOWEL_TOKENS = {
+    '@a', '@aa', '@i', '@ii', '@u', '@uu', '@ru', '@e', '@ee', '@ai', '@o', '@oo', '@au'
+}
 
 TELUGU_VOWELS = {
     '\u0c05': 'a', '\u0c06': 'aa', '\u0c07': 'i', '\u0c08': 'ii',
@@ -219,6 +225,18 @@ test_sentences = {
     },
 }
 
+parser = argparse.ArgumentParser(description="Telugu FastSpeech 2 — Assignment Test Sentence Synthesis")
+parser.add_argument("--d_control", type=float, default=1.25, help="Duration control factor (default: 1.25 for calibrated clarity)")
+parser.add_argument(
+    "--mode",
+    type=str,
+    default="duration_improved",
+    choices=["baseline", "duration_improved"],
+    help="Duration regulation mode: 'duration_improved' (default, calibrated vowel-protected) or 'baseline'",
+)
+cli_args, _ = parser.parse_known_args()
+print(f"Mode: {cli_args.mode} | Duration Control: {cli_args.d_control}")
+
 synthesis_results = {}
 
 for sent_id, info in test_sentences.items():
@@ -235,19 +253,44 @@ for sent_id, info in test_sentences.items():
     max_len    = max(txt_lens).item()
 
     with torch.no_grad():
-        output = model(
-            spk_tensor, txt_tensor, txt_lens, max_len,
-            p_control=1.0, e_control=1.0, d_control=1.0,
-        )
+        src_mask = get_mask_from_lengths(txt_lens, max_len)
+        enc = model.encoder(txt_tensor, src_mask)
+        if model.speaker_emb is not None:
+            enc = enc + model.speaker_emb(spk_tensor).unsqueeze(1).expand(-1, max_len, -1)
 
-        mel_predicted  = output[1].transpose(1, 2)
-        p_pred_norm    = output[2][0].cpu().numpy()
-        e_pred_norm    = output[3][0].cpu().numpy()
-        log_d_pred     = output[4][0].cpu().numpy()
-        d_rounded      = output[5][0].cpu().numpy()
-        mel_len        = output[9][0].item()
+        log_d = model.variance_adaptor.duration_predictor(enc, src_mask)
+        d_raw = torch.clamp(torch.exp(log_d) - 1, min=0).squeeze(0)
 
-        lengths = output[9] * hop_length
+        if cli_args.mode == "baseline":
+            d_base = torch.round(d_raw)
+            d_scaled = torch.clamp(torch.round(d_base * cli_args.d_control), min=0)
+        else:
+            d_scaled = torch.round(d_raw * cli_args.d_control)
+            for idx, tok in enumerate(tokens):
+                if tok in TELUGU_VOWEL_TOKENS and d_scaled[idx] < 2.0:
+                    d_scaled[idx] = 2.0
+
+        d_scaled_batch = d_scaled.unsqueeze(0)
+
+        p_pred, pitch_emb = model.variance_adaptor.get_pitch_embedding(enc, None, src_mask, 1.0)
+        enc = enc + pitch_emb
+        e_pred, energy_emb = model.variance_adaptor.get_energy_embedding(enc, None, src_mask, 1.0)
+        enc = enc + energy_emb
+
+        enc, mel_len_t = model.variance_adaptor.length_regulator(enc, d_scaled_batch, None)
+        mel_mask = get_mask_from_lengths(mel_len_t)
+        mel_output, mel_mask = model.decoder(enc, mel_mask)
+        mel_output = model.mel_linear(mel_output)
+        postnet_output = model.postnet(mel_output) + mel_output
+        mel_predicted = postnet_output.transpose(1, 2)
+
+        p_pred_norm    = p_pred[0].cpu().numpy()
+        e_pred_norm    = e_pred[0].cpu().numpy()
+        log_d_pred     = log_d[0].cpu().numpy()
+        d_rounded      = d_scaled.cpu().numpy()
+        mel_len        = mel_len_t[0].item()
+
+        lengths = mel_len_t * hop_length
         wavs    = vocoder_infer(mel_predicted, vocoder, model_config, preprocess_config, lengths=lengths)
         wav     = wavs[0]
 
