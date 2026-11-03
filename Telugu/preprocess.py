@@ -29,9 +29,12 @@ from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 # FastSpeech 2 reference imports
-ROOT_DIR = r"D:\Savio Shaju\TTS"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(SCRIPT_DIR)
 FASTSPEECH2_DIR = os.path.join(ROOT_DIR, "FastSpeech2-master")
 sys.path.insert(0, FASTSPEECH2_DIR)
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 from audio.stft import TacotronSTFT
 from audio.tools import get_mel_from_wav
 

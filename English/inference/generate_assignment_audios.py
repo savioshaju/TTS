@@ -28,8 +28,9 @@ from scipy.io import wavfile
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-BASE_DIR = r"D:\Savio Shaju\TTS"
-PKG_DIR  = os.path.join(BASE_DIR, "kaggle_staging", "English_FastSpeech2_Kaggle")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(SCRIPT_DIR))
+PKG_DIR  = SCRIPT_DIR
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
 

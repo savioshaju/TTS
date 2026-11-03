@@ -17,7 +17,8 @@ import numpy as np
 import torch
 import torchaudio
 
-ROOT_DIR = r"D:\Savio Shaju\TTS"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 DATASET_DIR = os.path.join(ROOT_DIR, "datasets", "prepared", "telugu_prepared_v2")
 OUTPUT_DIR = os.path.join(ROOT_DIR, "preprocessing", "Telugu", "wavs_16k")
 
