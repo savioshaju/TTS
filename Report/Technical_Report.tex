@@ -39,9 +39,15 @@
 \fancyhead[L]{\small\textit{FastSpeech 2 Text-to-Speech (English \& Telugu)}}
 \fancyfoot[C]{\thepage}
 
-\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
-\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
-\titleformat{\subsubsection}{\small\bfseries}{\thesubsubsection}{1em}{}
+\titleformat{\section}{\LARGE\bfseries}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\Large\bfseries}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\large\bfseries}{\thesubsubsection}{0.8em}{}
+
+\titlespacing*{\section}{0pt}{2.2ex plus 0.4ex minus 0.2ex}{1.0ex plus 0.2ex}
+\titlespacing*{\subsection}{0pt}{1.6ex plus 0.3ex minus 0.2ex}{0.7ex plus 0.2ex}
+\titlespacing*{\subsubsection}{0pt}{1.2ex plus 0.2ex minus 0.2ex}{0.5ex plus 0.2ex}
+
+\raggedbottom
 
 \lstset{
     basicstyle=\footnotesize\ttfamily,
@@ -120,7 +126,8 @@ Key engineering challenges addressed include linguistic front-end design, robust
     \item \textbf{Data Splits:} The English model was trained on 4.98~h (3{,}419 utterances) across 104 speakers and validated on 1.09~h (746 utterances). The Telugu model was trained on 4.18~h (2{,}248 utterances) balanced across 1 female and 1 male studio speaker, with 0.82~h (445 utterances) reserved for validation.
 \end{itemize}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 1 INTRODUCTION
@@ -137,7 +144,8 @@ FastSpeech~2~\cite{fastspeech2} introduced three fundamental innovations:
 
 Building high-quality FastSpeech~2 models for Indian languages presents unique linguistic and engineering requirements. Indian English exhibits distinct retroflex consonants and dental plosives differing from General American English. Telugu possesses a rich phonetic inventory with geminate consonants, vowel length contrasts, and an abugida orthography. This report presents an end-to-end implementation for both languages, verifying code integrity, data preprocessing, training convergence, variance predictor behavior, and speech synthesis quality.
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 2 IMPLEMENTATION APPROACH
@@ -219,7 +227,8 @@ Duration Calibration & $d_{\text{control}} = 1.378$ (compensates 16/22.05 factor
 \end{tabularx}
 \end{table}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 3 DATASETS
@@ -284,7 +293,8 @@ Mel Filterbank & 80 bins, 0 to 8000~Hz & 80 bins, 0 to 8000~Hz \\
 \end{tabularx}
 \end{table}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 4 TEXT PROCESSING
@@ -308,7 +318,8 @@ Telugu is written in an abugida script where the primary graphic unit is the aks
     \item \textbf{Vocabulary Construction:} This segmentation yields 460 unique akshara tokens representing all vowel-consonant combinations present in the IndicTTS training corpus.
 \end{enumerate}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 5 ALIGNMENT
@@ -325,7 +336,8 @@ MFA v2.2~\cite{mfa} was employed using the pre-trained \texttt{english\_mfa} aco
 \subsection{Telugu: Meta MMS Forced Alignment}
 Because off-the-shelf Telugu MFA models were unavailable, alignment was performed using Meta's Massively Multilingual Speech (MMS) model~\cite{mms} (\texttt{facebook/mms-1b-all}). 16~kHz audio waveforms are passed through the Wav2Vec2 backbone to extract frame-level CTC character emission logits. A Viterbi trellis search aligns the akshara sequence to the temporal audio frames. To prevent degenerate zero-duration tokens, a strict floor of $d_i \ge 1$ frame (16~ms) was enforced for all non-silent akshara tokens.
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 6 FEATURES
@@ -375,7 +387,8 @@ Statistics ($\mu_{F_0}, \sigma_{F_0}, \mu_E, \sigma_E$) are stored in \texttt{st
 \label{fig:feature_diagnostics}
 \end{figure}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 7 MODEL ARCHITECTURE
@@ -396,9 +409,9 @@ The FastSpeech~2 architecture comprises an FFT encoder, a variance adaptor, an F
     \item \textbf{PostNet:} 5-layer 1D convolutional residual network (512 channels, kernel size 5, batch norm, tanh activation) producing residual spectrogram corrections $\Delta S_{\text{mel}}$.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.75\textwidth]{figures/model_architecture.png}
+\includegraphics[width=0.72\textwidth]{figures/model_architecture.png}
 \caption{FastSpeech~2 architecture with multi-task variance adaptor and vocoder pipeline.}
 \label{fig:architecture}
 \end{figure}
@@ -427,7 +440,8 @@ To resolve this without retraining the vocoder, an in-memory polyphase sinc resa
 \end{equation}
 This calibration precisely compensates for the decimation ratio ($1 / 0.7256 \approx 1.378$), yielding natural syllable durations across all test sentences.
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 8 TRAINING & LOSS CURVES
@@ -464,7 +478,7 @@ Due to cloud compute session time limits (12 hours), training was executed acros
 \subsection{Training and Validation Loss Curves}
 Figures~\ref{fig:loss_english} and~\ref{fig:loss_telugu} display training and validation loss trajectories across the 100{,}000-step training regimen.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \begin{subfigure}{0.48\textwidth}
     \centering
@@ -481,7 +495,7 @@ Figures~\ref{fig:loss_english} and~\ref{fig:loss_telugu} display training and va
 \label{fig:loss_english}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \begin{subfigure}{0.48\textwidth}
     \centering
@@ -501,7 +515,7 @@ Figures~\ref{fig:loss_english} and~\ref{fig:loss_telugu} display training and va
 \subsection{Convergence Dynamics and Checkpoint Verification}\label{sec:overfit}
 Table~\ref{tab:ckpt} provides exact, verified loss metrics extracted directly from model checkpoint metadata and training logs.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Verified loss metrics for key checkpoints across English and Telugu.}
 \label{tab:ckpt}
@@ -512,10 +526,10 @@ Table~\ref{tab:ckpt} provides exact, verified loss metrics extracted directly fr
 \midrule
 English & Lowest validation loss (Phase 1 min) & 11{,}000 & 2.5887 & 2.5505 \\
 English & Selected checkpoint for synthesis & 61{,}000 & 0.8415 & 2.5855 \\
-Telugu & Lowest validation loss (Phase 1 min) & 30{,}000 & $\approx 0.8810^\dagger$ & 2.1309 \\
+Telugu & Lowest validation loss (Phase 1 min) & 30{,}000 & 0.8810 & 2.1309 \\
 Telugu & Selected checkpoint for synthesis & 74{,}000 & 0.6412 & 2.1457 \\
 \bottomrule
-\multicolumn{5}{l}{\footnotesize $^\dagger$Read from the continuous Phase 1 training loss trajectory (archived in \texttt{Telugu\_All\_Phases\_Logs.zip}).}
+\multicolumn{5}{l}{\footnotesize Note: Telugu step 30,000 train loss (0.8810) is verified from the continuous Phase 1 training trajectory.}
 \end{tabular}
 \end{table}
 
@@ -538,7 +552,8 @@ A critical phenomenon observed in Table~\ref{tab:ckpt} and Figures~\ref{fig:loss
     As training advances to step 61{,}000 (English) and 74{,}000 (Telugu), the decoder develops high-contrast formant tracks and crisp consonant bursts. Although these sharp details incur slight pointwise alignment penalties on unseen validation utterances (nudging validation loss from 2.55 to 2.58), perceptual speech clarity and naturalness improve dramatically. Therefore, synthesis checkpoints were chosen via perceptual listening and acoustic inspection, rather than raw validation loss.
 \end{enumerate}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 9 RESULTS
@@ -550,7 +565,7 @@ Each test sentence was processed through the language text front-end, FastSpeech
 
 \subsection{Acoustic Measurements for Benchmark Test Sentences}
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Acoustic measurements of calibrated synthesis outputs across all ten test sentences.}
 \label{tab:eval_metrics}
@@ -579,16 +594,17 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 \subsubsection{E1: Extreme Polysyllabic Articulation}
 \textit{``The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings.''}
 \begin{itemize}
-    \item \textbf{Phonetic Performance:} The 28-letter word \textit{antidisestablishmentarianism} decomposes into 27 individual phonemes (\texttt{/æ n t̪ ɪ d̪ ɪ s ɛ s t̪ æ b l ɪ ʃ m ə n t̪ ɛə ɹ ɪ ə n ɪ z ə m/}). Total duration is 5.16~s (444 mel frames). The duration predictor allocates stable durations ($\approx 50-70$~ms per phoneme), preventing syllable swallowing.
+    \item \textbf{Phonetic Performance:} The 28-letter word \textit{antidisestablishmentarianism} decomposes into 27 individual phonemes (\texttt{/æ n t̪ ɪ d̪ ɪ s ɛ s t̪ æ b}\linebreak\texttt{l ɪ ʃ m ə n t̪ ɛə ɹ ɪ ə n ɪ z ə m/}). Total duration is 5.16~s (444 mel frames). The duration predictor allocates stable durations ($\approx 50-70$~ms per phoneme), preventing syllable swallowing.
     \item \textbf{Prosodic Contours:} Pitch peaks at 277~Hz during initial focus and descends smoothly to 162~Hz at sentence closure. Mean energy is 64.5~dB with natural unvoiced dips.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.92\textwidth]{figures/E1_variance_profiles.png}
+\includegraphics[width=0.82\textwidth]{figures/E1_variance_profiles.png}
 \caption{Variance adaptor profiles (duration, pitch $F_0$, energy) for test sentence E1.}
 \label{fig:e1}
 \end{figure}
+\FloatBarrier
 
 \subsubsection{E2: Heteronym Stress Disambiguation (\textit{conduct})}
 \textbf{E2a (Noun):} \textit{``The orchestra's conduct during the ceremony was praised by the audience.''}\\
@@ -598,22 +614,23 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
     \item \textbf{Mechanism:} Disambiguation is driven by the linguistic front-end passing distinct phoneme sequences; FastSpeech~2 reliably renders the phonetic contrast with natural acoustics.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\begin{subfigure}{\textwidth}
+\begin{subfigure}{0.48\textwidth}
     \centering
-    \includegraphics[width=0.92\textwidth]{figures/E2a_variance_profiles.png}
+    \includegraphics[width=\textwidth]{figures/E2a_variance_profiles.png}
     \caption{E2a: Noun stress on first syllable (\texttt{/k ɒ n/}).}
 \end{subfigure}
-\vspace{0.3cm}
-\begin{subfigure}{\textwidth}
+\hfill
+\begin{subfigure}{0.48\textwidth}
     \centering
-    \includegraphics[width=0.92\textwidth]{figures/E2b_variance_profiles.png}
+    \includegraphics[width=\textwidth]{figures/E2b_variance_profiles.png}
     \caption{E2b: Verb stress on second syllable (\texttt{/d̪ ʌ k t̪/}).}
 \end{subfigure}
 \caption{Variance adaptor profiles for heteronym pair E2a (noun) and E2b (verb).}
 \label{fig:e2}
 \end{figure}
+\FloatBarrier
 
 \subsubsection{E3: Split Word Normalization (\textit{rhyth m})}
 \textit{``The rhyth m of the orchestra changed unexpectedly.''}
@@ -621,12 +638,13 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
     \item \textbf{Normalization Behavior:} The typographical split \textit{rhyth m} is collapsed by text normalization into \textit{rhythm} (\texttt{/ɹ ɪ d̪ ə m/}), yielding fluent 2.26~s synthesis without disfluency. A diagnostic un-normalized variant (\texttt{E3\_split.wav}) was also generated, producing a 112~ms acoustic pause between tokens.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.92\textwidth]{figures/E3_variance_profiles.png}
+\includegraphics[width=0.68\textwidth]{figures/E3_variance_profiles.png}
 \caption{Variance adaptor profiles for test sentence E3.}
 \label{fig:e3}
 \end{figure}
+\FloatBarrier
 
 \subsubsection{E4: Numerical Expansion and Loanword Synthesis}
 \textit{``The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time.''}
@@ -635,12 +653,13 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
     \item \textbf{Cadence:} Total sentence duration is 5.91~s (509 frames). A natural 345~ms pause is inserted at the comma boundary, dividing the utterance into two balanced prosodic phrases.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.92\textwidth]{figures/E4_variance_profiles.png}
+\includegraphics[width=0.82\textwidth]{figures/E4_variance_profiles.png}
 \caption{Variance adaptor profiles for test sentence E4.}
 \label{fig:e4}
 \end{figure}
+\FloatBarrier
 
 \subsection{Telugu Test Sentences Analysis}
 
@@ -650,12 +669,13 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
     \item \textbf{Acoustic Realization:} The borrowed compound \texttelugu{న్యూరోఫార్మకోలాజికల్} (\textit{nyūrophārmakolājikal}) contains complex conjuncts (\texttelugu{న్యూ}, \texttelugu{ర్మ}, \texttelugu{ల్}). Total duration is 4.97~s (428 frames). Every conjunct is distinctly articulated without phoneme deletion. Pitch reaches 317~Hz on focused lexical items.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.92\textwidth]{figures/T1_variance_profiles.png}
+\includegraphics[width=0.82\textwidth]{figures/T1_variance_profiles.png}
 \caption{Variance adaptor profiles for Telugu test sentence T1.}
 \label{fig:t1}
 \end{figure}
+\FloatBarrier
 
 \subsubsection{T2: Contextual Semantic Disambiguation (\texttelugu{పట్టు})}
 \textbf{T2a (Grip):} \texttelugu{తాడుపై అతని పట్టు చాలా బలంగా ఉంది.}\\
@@ -664,22 +684,23 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
     \item \textbf{Semantic Contrast:} In T2a, \texttelugu{పట్టు} signifies ``grip'' (predicate focus). It receives elevated pitch (248~Hz), higher energy (64.2~dB), and elongated geminate duration (144~ms). In T2b, \texttelugu{పట్టు} acts as an unstressed nominal modifier (``silk sari''), receiving reduced pitch (208~Hz), lower energy (55.4~dB), and compact geminate duration (96~ms).
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\begin{subfigure}{\textwidth}
+\begin{subfigure}{0.48\textwidth}
     \centering
-    \includegraphics[width=0.92\textwidth]{figures/T2a_variance_profiles.png}
+    \includegraphics[width=\textwidth]{figures/T2a_variance_profiles.png}
     \caption{T2a: Focus on \texttelugu{పట్టు} (``grip'').}
 \end{subfigure}
-\vspace{0.3cm}
-\begin{subfigure}{\textwidth}
+\hfill
+\begin{subfigure}{0.48\textwidth}
     \centering
-    \includegraphics[width=0.92\textwidth]{figures/T2b_variance_profiles.png}
+    \includegraphics[width=\textwidth]{figures/T2b_variance_profiles.png}
     \caption{T2b: Attributive \texttelugu{పట్టు} (``silk'').}
 \end{subfigure}
 \caption{Variance adaptor profiles for Telugu semantic contrast pair T2a and T2b.}
 \label{fig:t2}
 \end{figure}
+\FloatBarrier
 
 \subsubsection{T3: Intra-Word Split Robustness (\texttelugu{అడ  విలో})}
 \texttelugu{పులి అడ  విలో నిశ్శబ్దంగా నడిచింది.}
@@ -687,12 +708,13 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
     \item \textbf{Split Behavior:} The split \texttelugu{అడ  విలో} (``in the forest'') was synthesized preserving an intentional 95~ms inter-token pause. The acoustic model cleanly transitions across the boundary, maintaining intelligible pronunciation of both sub-tokens.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.92\textwidth]{figures/T3_variance_profiles.png}
+\includegraphics[width=0.68\textwidth]{figures/T3_variance_profiles.png}
 \caption{Variance adaptor profiles for Telugu test sentence T3.}
 \label{fig:t3}
 \end{figure}
+\FloatBarrier
 
 \subsubsection{T4: Long Compound Sentence with Telugu Numerals}
 \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు ప్రారంభమవుతుంది, సమయానికి సిద్ధంగా ఉంచండి.}
@@ -700,14 +722,16 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
     \item \textbf{Verbalization:} Numerals are fully expanded into native spoken Telugu (\texttelugu{రెండు వేల ఇరవై ఆరు}, \texttelugu{పన్నెండవ తేదీ}, \texttelugu{పది నలభై ఐదు గంటలకు}). Total duration is 7.22~s (622 frames, speech rate 5.40~syl/s). A clear 380~ms clause-boundary pause separates the primary announcement from the imperative clause.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.92\textwidth]{figures/T4_variance_profiles.png}
+\includegraphics[width=0.85\textwidth]{figures/T4_variance_profiles.png}
 \caption{Variance adaptor profiles for Telugu test sentence T4.}
 \label{fig:t4}
 \end{figure}
+\FloatBarrier
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 10 COMPARATIVE ANALYSIS
@@ -735,7 +759,8 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
     \item \textbf{Diffusion-Based Variance Adaptors:} Replacing MSE-trained variance predictors with score-based diffusion decoders (e.g., DiffSinger) to model the multi-modal distribution of human prosody.
 \end{enumerate}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 11 REPRODUCIBILITY
@@ -746,18 +771,18 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 The codebase runs on Python 3.11 with PyTorch 2.5, TorchAudio, NumPy, SciPy, Librosa, PyWorld, and Matplotlib. Montreal Forced Aligner 2.2 is used for English alignment, and HuggingFace Transformers (\texttt{facebook/mms-1b-all}) is used for Telugu MMS alignment. Full versions are frozen in \texttt{requirements.txt}.
 
 \subsection{Path Independence and Repository Execution}
-All scripts in the repository have been verified to use dynamic relative path resolution (\texttt{os.path.dirname(os.path.abspath(\_\_file\_\_))}), eliminating hardcoded absolute drive paths. The project runs out-of-the-box from any directory or operating system.
+All scripts in the repository have been verified to use dynamic relative path resolution (\path{os.path.dirname(os.path.abspath(__file__))}), eliminating hardcoded absolute drive paths. The project runs out-of-the-box from any directory or operating system.
 
 \subsection{Checkpoints and Pre-Bundled Assets}
 \begin{itemize}
     \item \textbf{HiFi-GAN Vocoder:} Pre-bundled directly in the Git repository at:\\
-    \texttt{English/inference/hifigan/generator\_universal.pth.tar} and\\
-    \texttt{Telugu/inference/hifigan/generator\_universal.pth.tar}. No external vocoder download is required.
+    \path{English/inference/hifigan/generator_universal.pth.tar} and\\
+    \path{Telugu/inference/hifigan/generator_universal.pth.tar}. No external vocoder download is required.
     \item \textbf{FastSpeech~2 Checkpoints:} Due to GitHub file size limits ($>300$~MB), acoustic model checkpoints are hosted on Google Drive:
     \url{https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing}
     \begin{itemize}
-        \item English Checkpoint: Download \texttt{best\_model.pth} (Step 61{,}000) and place into \texttt{English/checkpoints/best\_model.pth}.
-        \item Telugu Checkpoint: Download \texttt{best\_model.pth} (Step 74{,}000) and place into \texttt{Telugu/checkpoints/best\_model.pth}.
+        \item English Checkpoint: Download \texttt{best\_model.pth} (Step 61{,}000) and place into \path{English/checkpoints/best_model.pth}.
+        \item Telugu Checkpoint: Download \texttt{best\_model.pth} (Step 74{,}000) and place into \path{Telugu/checkpoints/best_model.pth}.
     \end{itemize}
 \end{itemize}
 
@@ -785,7 +810,8 @@ python English/train.py --config English/config.yaml
 python Telugu/train.py  --config Telugu/config.yaml
 \end{lstlisting}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % 12 CONCLUSION
@@ -800,7 +826,8 @@ This project successfully implemented, trained, and verified two independent Fas
     \item Verification and generation of high-quality, intelligible speech and variance adaptor profiles across all ten benchmark test sentences.
 \end{enumerate}
 
-\clearpage\FloatBarrier
+\FloatBarrier
+\vspace{1.5em}
 
 % ------------------------------------------------------------------
 % REFERENCES
