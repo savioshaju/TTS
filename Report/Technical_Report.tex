@@ -110,60 +110,70 @@ Saintgits College of Engineering
 \end{titlepage}
 
 \pagenumbering{roman}
+
+% ------------------------------------------------------------------
+% ABSTRACT (Front Matter)
+% ------------------------------------------------------------------
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+This technical report documents the implementation, training, and evaluation of two independent FastSpeech~2 non-autoregressive text-to-speech (TTS) synthesis systems for Indian English and Telugu. Designed to overcome the exposure bias and slow inference of autoregressive architectures, FastSpeech~2 predicts mel-spectrograms non-autoregressively conditioned on phoneme or character embeddings and multi-task variance predictors for duration, pitch ($F_0$), and energy. Both systems were developed under an assignment data constraint of approximately 5~hours of training audio and 1~hour of validation audio. Indian English utilizes crowdsourced multi-speaker recordings from the AI4Bharat Svarah corpus aligned with the Montreal Forced Aligner (MFA) across 100 IPA phoneme tokens. Telugu utilizes studio recordings from the IndicTTS corpus aligned directly with Meta's Massively Multilingual Speech (MMS) Wav2Vec2-CTC acoustic model over 460 native-script akshara units. Both acoustic models were trained for 100{,}000 steps with mixed precision on dual NVIDIA Tesla T4 GPUs and paired with a pre-trained HiFi-GAN vocoder adapted via sinc-resampling and duration calibration. Systematic evaluation on five prescribed benchmark test sentences per language demonstrates robust phoneme articulation, natural prosodic contour variation, and resilience against typographical anomalies and loanwords.
+
+\clearpage
 \setcounter{tocdepth}{2}
 \tableofcontents
 \clearpage\FloatBarrier
 \pagenumbering{arabic}
 
 % ------------------------------------------------------------------
-% SUMMARY
+% 1 INTRODUCTION
 % ------------------------------------------------------------------
-\chapter*{Summary}
-\addcontentsline{toc}{chapter}{Summary}
+\chapter{Introduction}
 
-\section*{Problem Statement}
-Text-to-Speech (TTS) synthesis converts input text into natural acoustic speech. Autoregressive models such as Tacotron~2 produce high quality audio but synthesize frames sequentially, making inference slow and prone to attention failures such as skipped or repeated words. FastSpeech~2 addresses this by generating mel-spectrograms non-autoregressively using Feed-Forward Transformer (FFT) blocks conditioned on explicit duration, pitch ($F_0$), and energy predictions.
+\section{Background and Problem Statement}
+Text-to-Speech (TTS) synthesis converts raw orthographic or phonemic text into intelligible, human-like acoustic waveforms. Conventional two-stage neural TTS architectures combine an acoustic model that generates intermediate time-frequency representations (such as 80-channel log mel-spectrograms) with an audio neural vocoder that synthesizes time-domain waveforms. While autoregressive acoustic models such as Tacotron~2 generate expressive speech, their sequential decoding mechanism suffers from high inference latency, error propagation across time frames, and attention alignment failures that lead to repeated or skipped phonemes on out-of-domain text.
 
-The objective of this assignment is to implement, train, and evaluate two independent FastSpeech~2 TTS models under a data constraint of approximately 5 hours of audio per language:
+Non-autoregressive TTS architectures, specifically FastSpeech~2~\cite{fastspeech2}, resolve these limitations by predicting the entire mel-spectrogram in parallel using Feed-Forward Transformer (FFT) blocks. Instead of dynamic attention matrices, FastSpeech~2 explicitly models temporal alignment using a duration predictor supervised by forced-alignment tools, while augmenting the phonetic hidden vectors with explicit continuous pitch ($F_0$) and frame energy predictions via a multi-task variance adaptor.
+
+The objective of this assignment is to adapt, train, and evaluate two independent FastSpeech~2 acoustic models under a strict dataset constraint of approximately 5~hours of training audio and 1~hour of validation audio per language:
 \begin{enumerate}
-    \item \textbf{Indian English:} Uses crowdsourced multi-speaker audio from the AI4Bharat Svarah corpus. Text is converted to IPA phoneme sequences via a Grapheme-to-Phoneme (G2P) lexicon.
-    \item \textbf{Telugu:} Uses studio recordings from the IndicTTS corpus. Text is tokenized directly into native-script akshara units, bypassing the need for a separate pronunciation dictionary.
+    \item \textbf{Indian English:} Synthesizes speech from crowdsourced multi-speaker audio from the AI4Bharat Svarah corpus, representing diverse regional Indian accents using an IPA phoneme front-end.
+    \item \textbf{Telugu:} Synthesizes speech from high-quality studio recordings from the IndicTTS corpus, utilizing native-script akshara tokenization to preserve phonetic transparent orthography without requiring an external G2P lexicon.
 \end{enumerate}
 
-Key implementation steps include setting up forced alignment (MFA for English, Meta MMS for Telugu), training multi-task variance predictors, adapting a 22.05~kHz HiFi-GAN vocoder to 16~kHz mel-spectrograms, and calibrating speech pacing.
+Key engineering challenges addressed include building robust alignment pipelines (Montreal Forced Aligner for English and Meta MMS CTC alignment for Telugu), decoupling pitch and energy variance predictors, resolving multi-GPU device ordinals in PyTorch, adapting a 22.05~kHz HiFi-GAN universal vocoder to 16.0~kHz acoustic predictions through polyphase sinc-resampling, and calibrating speaking pace.
 
-\section*{Summary of Results}
+\section{FastSpeech 2 Architecture Principles}
+The FastSpeech~2 model operates through three core principles:
+\begin{enumerate}
+    \item \textbf{Parallel Generation:} Replacing recurrent and sequential autoregressive decoding with feed-forward transformer blocks allows the complete sequence of mel-spectrogram frames to be synthesized concurrently, achieving an inference speedup of over $30\times$ compared to autoregressive baselines.
+    \item \textbf{Explicit Length Regulation:} Phoneme durations are obtained during preprocessing from forced aligners and predicted during inference with a convolutional duration predictor. The length regulator expands phoneme embeddings to match the acoustic frame length, eliminating attention collapse.
+    \item \textbf{Multi-Task Variance Adaptation:} To alleviate the one-to-many mapping problem in TTS (where identical text can correspond to diverse pitch and volume patterns), FastSpeech~2 incorporates pitch and energy predictors that supply explicit frame-level prosodic features directly into the expanded representation.
+\end{enumerate}
+
+\section{Summary of Key Experimental Results}
 \begin{itemize}
-    \item \textbf{Speech Quality:} Both models produce clear, intelligible speech across all ten assigned test sentences. The English model handles long polysyllabic words (\textit{antidisestablishmentarianism}), heteronym stress contrasts (\textit{conduct}), and Telugu loanwords (\textit{andaroo}). The Telugu model correctly articulates consonant conjuncts (\texttelugu{న్యూరోఫార్మకోలాజికల్}), demonstrates contextual pitch/energy variation on keywords (\texttelugu{పట్టు}), and handles spoken dates, times, and split words.
-    \item \textbf{Loss Curves and Checkpoints:} Training loss decreased steadily over 100{,}000 steps ($2.59 \to 0.84$ for English, $2.13 \to 0.64$ for Telugu). Validation loss reached its minimum early (step 11{,}000 for English at 2.5505; step 30{,}000 for Telugu at 2.1309) and remained flat. Checkpoints with the lowest validation loss produce muffled audio because predicting smoothed, blurry formants minimizes pointwise L1 loss. Checkpoints selected by listening (step 61{,}000 for English, step 74{,}000 for Telugu) have sharper formant tracks and much clearer consonants.
-    \item \textbf{Duration Calibration:} The acoustic models generate 16~kHz mel-spectrograms, whereas HiFi-GAN was pre-trained on 22.05~kHz audio. Sinc-resampling from 22.05~kHz to 16~kHz fixes pitch, but the sample decimation makes speech play 1.38$\times$ faster than normal. Setting duration control to $d_{\text{control}} \approx 1.38 - 1.40$ restores normal conversational pacing.
-    \item \textbf{Dataset Splits:} The English model was trained on 4.98~h (3{,}419 utterances) across 104 speakers, with 1.09~h (746 utterances) for validation. The Telugu model was trained on 4.18~h (2{,}248 utterances) across 2 studio speakers, with 0.82~h (445 utterances) for validation.
+    \item \textbf{Speech Quality and Intelligibility:} Both models achieve clear, natural articulation across all ten assigned benchmark sentences. The English model accurately articulates the 28-letter polysyllabic word \textit{antidisestablishmentarianism}, reproduces syntactic stress shifts for the heteronym pair \textit{conduct} (noun vs.\ verb), handles typographical split tokens in \textit{rhyth  m}, and pronounces dates, times, and Telugu loanwords (\textit{andaroo}). The Telugu model correctly realizes complex consonant conjuncts (\texttelugu{న్యూరోఫార్మకోలాజికల్}), demonstrates contextual pitch/energy emphasis on semantic keywords (\texttelugu{పట్టు}), and synthesizes long compound utterances with natural clause pausing.
+    \item \textbf{Convergence and Overfitting Behavior:} Training loss decreased steadily over 100{,}000 steps ($2.59 \to 0.84$ for English, $2.13 \to 0.64$ for Telugu). Validation loss reached its minimum early (step 11{,}000 at 2.5505 for English; step 30{,}000 at 2.1309 for Telugu) and flattened. Checkpoints chosen at minimum validation loss produced muffled formant tracks due to L1 loss smoothing; checkpoints chosen at later steps (step 61{,}000 for English, step 74{,}000 for Telugu) exhibited noticeably sharper consonants and higher perceptual intelligibility.
+    \item \textbf{Vocoder Calibration and Pacing:} Both acoustic models generate 16~kHz mel-spectrograms, while HiFi-GAN universal vocoder was trained on 22.05~kHz audio. Sinc-resampling from 22.05~kHz to 16.0~kHz restores natural pitch and formant scale, but reduces audio sample count by a factor of $\alpha \approx 0.7256$, accelerating playback to 1.38$\times$ conversational tempo. Calibrating inference duration control to $d_{\text{control}} \approx 1.38 - 1.40$ restores normal conversational speech rates (4.5--5.4 syllables/second).
+    \item \textbf{Dataset Split Configurations:} English was partitioned into 4.98~hours (3{,}419 utterances) training and 1.09~hours (746 utterances) validation across 104 speakers using speaker-stratified sampling. Telugu was partitioned into 4.18~hours (2{,}248 utterances) training and 0.82~hours (445 utterances) validation across 2 balanced studio speakers.
+\end{itemize}
+
+\section{Report Organization}
+The remainder of this report is organized as follows:
+\begin{itemize}
+    \item \textbf{Chapter 2 (Implementation Details):} Details the codebase structure, PyTorch 2.5 multi-GPU setup, critical bug fixes, and architecture modifications.
+    \item \textbf{Chapter 3 (Datasets and Preprocessing):} Describes corpus selection, audio filtering, train/validation splits, tokenization, forced alignment, and acoustic feature normalization.
+    \item \textbf{Chapter 4 (Model Architecture and Vocoder):} Outlines the encoder-decoder blocks, variance adaptor, loss formulations, and HiFi-GAN vocoder adaptation.
+    \item \textbf{Chapter 5 (Training and Loss Analysis):} Analyzes hyperparameters, training and validation loss curves, convergence, and checkpoint selection.
+    \item \textbf{Chapter 6 (Speech Synthesis and Evaluation):} Details acoustic measurements and variance-adaptor plot analysis across all ten prescribed test sentences.
+    \item \textbf{Chapter 7 (Comparison: English vs.\ Telugu):} Examines phonetic/prosodic contrasts, failure modes, and potential architectural extensions.
+    \item \textbf{Chapter 8 (Reproducibility):} Provides complete environment dependencies, dataset download procedures, preprocessing commands, Kaggle dual-GPU training scripts, and inference instructions.
+    \item \textbf{Chapter 9 (Conclusion):} Summarizes major technical outcomes and engineering insights.
 \end{itemize}
 
 \FloatBarrier
 \vspace{1.5em}
 
-% ------------------------------------------------------------------
-% 1 INTRODUCTION
-% ------------------------------------------------------------------
-\chapter{Introduction}
-Modern neural TTS systems generally consist of two stages: an acoustic model that converts input text into mel-spectrograms, and a vocoder that synthesizes time-domain waveforms from those spectrograms.
-
-FastSpeech~2~\cite{fastspeech2} improves on earlier models in three main ways:
-\begin{enumerate}
-    \item \textbf{Non-autoregressive generation:} Replacing sequential autoregressive decoding with feed-forward transformer blocks allows the entire mel-spectrogram to be generated in parallel, significantly speeding up inference.
-    \item \textbf{Length Regulation:} Instead of attention mechanisms that can fail on unseen text, FastSpeech~2 uses a duration predictor and length regulator to expand phoneme hidden vectors to frame lengths.
-    \item \textbf{Variance Adaptor:} In addition to duration, the model explicitly predicts pitch ($F_0$) and energy ($E$), adding prosodic detail to the expanded representations.
-\end{enumerate}
-
-Developing FastSpeech~2 models for Indian languages requires specific design choices. Indian English features distinct phonology and loanwords, while Telugu has an abugida script with consonant conjuncts and vowel length distinctions. This report details the implementation of both pipelines, covering data preprocessing, forced alignment, training loss curves, variance predictor analysis, and speech synthesis evaluation.
-
-\FloatBarrier
-\vspace{1.5em}
-
-% ------------------------------------------------------------------
-% 2 IMPLEMENTATION APPROACH
-% ------------------------------------------------------------------
 \chapter{Implementation Details}
 
 \section{Base Architecture and Dependencies}
