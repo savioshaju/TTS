@@ -10,11 +10,11 @@ Download the Telugu model weights and full multi-phase logs from the shared Goog
 👉 **[Google Drive Shared Model Folder](https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing)**
 
 Navigate to the `Telugu/` subfolder in Google Drive:
-- `best_model.pth` (~400 MB) — Top Phase 2 model (Step 74,000, Val Loss: **2.1457**)
+- `best_model.pth` (~400 MB) — Primary evaluation model (Step 74,000, Val Loss: **2.1457**)
 - `latest_checkpoint.pth` (~400 MB) — Terminal 100k training checkpoint (Step 100,000, Epoch 714, Val Loss: **2.1661**)
-- `best_step_74000.pth` (~400 MB) — Rank 1 Phase 2 snapshot
-- `best_step_64000.pth` (~400 MB) — Rank 2 Phase 2 snapshot (Val Loss: 2.1462)
-- `best_step_78000.pth` (~400 MB) — Rank 3 Phase 2 snapshot (Val Loss: 2.1477)
+- `best_step_74000.pth` (~400 MB) — Primary Phase 2 evaluation snapshot (Step 74,000)
+- `best_step_64000.pth` (~400 MB) — Secondary validation candidate snapshot (Step 64,000, Val Loss: 2.1462)
+- `best_step_78000.pth` (~400 MB) — Tertiary validation candidate snapshot (Step 78,000, Val Loss: 2.1477)
 - `Telugu_All_Phases_Logs.zip` (53.48 MB) — Complete Phase 1 and Phase 2 TensorBoard events, PDF execution logs, master combined logs, and metrics
 - `Telugu_Phase1_Results.zip` (2.93 MB) — Archived Phase 1 assets and loss plots
 - `generator_universal.pth.tar` (~55 MB) — HiFi-GAN universal vocoder weights
