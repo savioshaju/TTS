@@ -199,7 +199,7 @@ project/
 \end{lstlisting}
 
 \subsection{Codebase Corrections and Bug Fixes}
-During setup and initial verification of the reference code, I identified and fixed three bugs:
+During initial testing of the reference implementation, I identified and fixed three bugs:
 \begin{enumerate}
     \item \textbf{Energy Control Bug (\texttt{model/modules.py}):} In the variance adaptor, \texttt{p\_control} was accidentally passed to the energy lookup instead of \texttt{e\_control}. Modifying pitch inadvertently altered energy, while energy scaling had no effect. I updated the function arguments to properly decouple pitch and energy.
     \item \textbf{Multi-GPU Device Placement} in \texttt{utils/tools.py}: Tensors were assigned to \texttt{"cuda"} without device ordinals, causing device mismatch under \texttt{DataParallel}. I refactored tensor allocations to dynamically match the batch input device.
@@ -516,7 +516,7 @@ Figures~\ref{fig:loss_english} and~\ref{fig:loss_telugu} display the training an
 \end{figure}
 
 \subsection{Convergence and Checkpoints}\label{sec:overfit}
-Table~\ref{tab:ckpt} summarizes the verified loss metrics from checkpoint files and training logs.
+Table~\ref{tab:ckpt} lists the loss metrics from training logs and model checkpoints.
 
 \begin{table}[!htbp]
 \centering
@@ -768,7 +768,7 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 \section{Reproducibility}
 
 \subsection{Environment and Dependencies}
-The codebase runs on Python 3.11 with PyTorch 2.5, TorchAudio, NumPy, SciPy, Librosa, PyWorld, Matplotlib, and HuggingFace Transformers. Pinned package versions are listed in \texttt{requirements.txt}. All scripts use dynamic relative path resolution via \texttt{os.path.abspath}, eliminating hardcoded drive letters so the repository can be executed directly from any folder or platform.
+The implementation runs on Python 3.11 with PyTorch 2.5, TorchAudio, NumPy, SciPy, Librosa, PyWorld, Matplotlib, and HuggingFace Transformers. Exact package dependencies and pinned versions are listed in \texttt{requirements.txt}.
 
 \subsection{Dataset Download and Directory Setup}
 \begin{itemize}
@@ -823,7 +823,7 @@ The notebook workflow consists of five stages:
 \begin{enumerate}
     \item \textbf{GPU \& Environment Setup:} Detects dual T4 GPUs and initializes PyTorch \texttt{DataParallel} with AMP FP16. Batch size is set to 16 (8 utterances per GPU).
     \item \textbf{Dataset Extraction:} Staged preprocessed data archives (\texttt{preprocessed\_data.zip}) are uncompressed into the local scratch disk for high-throughput I/O.
-    \item \textbf{Checkpoint Auto-Discovery:} Checks \texttt{checkpoints/} for the latest step to allow seamless resumption.
+    \item \textbf{Checkpoint Resumption:} Checks \texttt{checkpoints/} for the latest step to automatically resume training.
     \item \textbf{Two-Phase Training Workflow:} Due to Kaggle's 12-hour session limit, training was executed across two sequential runs per language:
     \begin{itemize}
         \item \textit{Phase 1:} Trains from step 0 to $\sim$53k/56k steps; checkpoint and full optimizer state are serialized to persistent cloud storage.
