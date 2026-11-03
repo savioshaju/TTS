@@ -781,46 +781,130 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 The implementation runs on Python 3.11 with PyTorch 2.5, TorchAudio, NumPy, SciPy, Librosa, PyWorld, Matplotlib, and HuggingFace Transformers. Exact package dependencies and pinned versions are listed in \texttt{requirements.txt}.
 
 \section{Dataset Download and Directory Setup}
+Both speech datasets are hosted on Hugging Face as sharded Parquet files containing audio waveforms, transcriptions, and speaker demographic attributes:
 \begin{itemize}
-    \item \textbf{English (AI4Bharat Svarah):} Multi-speaker Indian English crowdsourced dataset (104 speakers). Download using the Hugging Face CLI:
+    \item \textbf{English (AI4Bharat Svarah):} Multi-speaker crowdsourced Indian English corpus (104 speakers across 19 native language backgrounds). Download from Hugging Face:
 \begin{lstlisting}[language=bash]
+# Install Hugging Face Hub CLI
 pip install huggingface_hub
-huggingface-cli download ai4bharat/svarah --repo-type dataset --local-dir datasets/raw/svarah
+
+# Download AI4Bharat Svarah dataset (~1.0 GB, gated access)
+huggingface-cli download ai4bharat/Svarah --repo-type dataset --local-dir datasets/Svarah
 \end{lstlisting}
-    Audio files and transcripts are extracted to:
+    Raw Parquet shards are placed in:
     \begin{quote}
-    Audio: \path{datasets/raw/svarah/audio/}\\
-    Metadata: \path{datasets/raw/svarah/metadata.csv}
+    \path{datasets/Svarah/data/train-*.parquet}
     \end{quote}
-    \item \textbf{Telugu (IndicTTS):} Clean studio recordings (IIT Madras / MeitY). Download from the official portal at:
-    \newline\url{https://www.iitm.ac.in/donlab/tts/database.php}
-    \newline Audio files are extracted to:
+
+    \item \textbf{Telugu (IndicTTS Telugu):} High-quality studio speech recordings curated by the Speech Technology Consortium at IIT Madras and MeitY (~8.74~hours total across 2 studio speakers). Download from Hugging Face:
+\begin{lstlisting}[language=bash]
+# Download IndicTTS Telugu dataset (~6.0 GB)
+huggingface-cli download SPRINGLab/IndicTTS_Telugu --repo-type dataset --local-dir datasets/IndicTTS_Telugu
+\end{lstlisting}
+    Raw Parquet shards are placed in:
     \begin{quote}
-    Female Studio (48~kHz): \path{datasets/raw/telugu/female/wavs/}\\
-    Male Studio (16~kHz): \path{datasets/raw/telugu/male/wavs/}
+    \path{datasets/IndicTTS_Telugu/data/train-*.parquet}
     \end{quote}
+
+    \item \textbf{Automated Download Script:} Alternatively, both datasets can be downloaded automatically using the repository utility:
+\begin{lstlisting}[language=bash]
+# Download Telugu IndicTTS
+python tools/download_datasets.py --only indictts
+
+# Download English Svarah (requires HF_TOKEN environment variable)
+python tools/download_datasets.py --only svarah --token <YOUR_HF_TOKEN>
+\end{lstlisting}
 \end{itemize}
 
-\section{Dataset Preprocessing Pipeline}
-The preprocessing scripts perform audio normalization, forced alignment, and acoustic feature extraction:
+\section{5-Hour Dataset Preparation and Subsampling}
+To satisfy the assignment constraint of approximately 5~hours of training audio and 1~hour of validation audio per language, automated dataset preparation scripts parse the raw Parquet shards, filter audio quality, perform stratified sampling, and export partitioned WAV files and manifests:
+
 \begin{enumerate}
-    \item \textbf{Audio Standardization:} 48~kHz Telugu female audio is downsampled to 16~kHz using a 64-tap Kaiser-windowed sinc filter (7,600~Hz cutoff). Clips with duration $<1.0$~s, $>12.0$~s, or SNR $<15$~dB are removed. All audio is peak-normalized to 0.95 amplitude.
-    \item \textbf{Forced Alignment:}
+    \item \textbf{English Preparation (\texttt{tools/create\_svarah\_splits.py}):}
     \begin{itemize}
-        \item \textit{English:} Uses Montreal Forced Aligner (MFA v2.2) with the \texttt{english\_mfa} acoustic model to generate 100 IPA phoneme target durations.
-        \item \textit{Telugu:} Uses Meta MMS (\texttt{facebook/mms-1b-all}) Wav2Vec2 CTC emission logits with Viterbi search to align 460 native akshara tokens (minimum duration $\ge 1$ frame).
+        \item Parses Parquet shards in \path{datasets/Svarah/data/}, calculating audio duration directly from binary WAV headers.
+        \item Identifies 104 unique speakers via demographic metadata (gender, age group, native state/district, mother tongue).
+        \item Filters utterance durations to the TTS range ($1.0\text{ s} \le d \le 12.0\text{ s}$) and discards clipped audio.
+        \item Subsamples approximately 40 utterances per speaker across all 104 speakers to ensure balanced acoustic representation (4{,}165 total utterances, 6.07 hours).
+        \item Performs an 82\%/18\% within-speaker stratified split (seed 42) into \textbf{3{,}419 training utterances (4.98~hours)} and \textbf{746 validation utterances (1.09~hours)}.
+        \item Extracts 16~kHz mono WAV files and writes pipe-delimited manifests to:
+        \begin{quote}
+        \path{datasets/prepared/english_speaker_independent/train/wavs/}\\
+        \path{datasets/prepared/english_speaker_independent/train/metadata.csv}\\
+        \path{datasets/prepared/english_speaker_independent/val/wavs/}\\
+        \path{datasets/prepared/english_speaker_independent/val/metadata.csv}
+        \end{quote}
     \end{itemize}
-    \item \textbf{Acoustic Extraction:} Computes 80-bin mel-spectrograms, continuous $F_0$ (PyWorld Harvest), and frame energy. Normalization statistics ($\mu, \sigma$) are saved to \texttt{stats.json}.
+\begin{lstlisting}[language=bash]
+# Run English 5-hour dataset extraction and splitting
+python tools/create_svarah_splits.py
+\end{lstlisting}
+
+    \item \textbf{Telugu Preparation (\texttt{Telugu/preprocess/create\_telugu\_splits.py}):}
+    \begin{itemize}
+        \item Parses Parquet shards in \path{datasets/IndicTTS_Telugu/data/} (8{,}576 total utterances, ~8.74 hours from 1 female and 1 male studio speaker).
+        \item Filters durations between $1.0\text{ s} \le d \le 14.5\text{ s}$ and requires transcript length $\ge 2$.
+        \item Subsamples 5.00~hours total using proportional speaker weights (58\% female, 42\% male) matching the natural studio distribution.
+        \item Splits into \textbf{2{,}248 training utterances (4.18~hours)} and \textbf{445 validation utterances (0.82~hours)} with strictly zero utterance overlap (verified via SHA-256 text hashing).
+        \item Extracts raw WAV files and metadata to:
+        \begin{quote}
+        \path{datasets/prepared/telugu_prepared/train/wavs/}\\
+        \path{datasets/prepared/telugu_prepared/train/metadata.csv}\\
+        \path{datasets/prepared/telugu_prepared/val/wavs/}\\
+        \path{datasets/prepared/telugu_prepared/val/metadata.csv}
+        \end{quote}
+    \end{itemize}
+\begin{lstlisting}[language=bash]
+# Run Telugu 5-hour dataset extraction and splitting
+python Telugu/preprocess/create_telugu_splits.py
+\end{lstlisting}
 \end{enumerate}
 
-To run preprocessing from the repository root:
+\section{Audio Standardization, Forced Alignment, and Feature Extraction}
+Following dataset splitting, raw audio is standardized, aligned, and converted into acoustic features:
+\begin{enumerate}
+    \item \textbf{Audio Standardization and Resampling:}
+    \begin{itemize}
+        \item English audio is validated at 16~kHz mono PCM.
+        \item Telugu female audio (recorded at 48~kHz) is downsampled to 16~kHz using a 64-tap Kaiser-windowed polyphase sinc filter with an anti-aliasing cutoff of 7{,}600~Hz:
 \begin{lstlisting}[language=bash]
-# English preprocessing (MFA forced alignment + acoustic extraction)
-python English/preprocess.py --config English/config.yaml --stage all --jobs 8
+python Telugu/preprocess/resample_telugu_audio.py
+# Outputs 16 kHz standardized WAVs to: preprocessing/Telugu/wavs_16k/
+\end{lstlisting}
+    \end{itemize}
 
-# Telugu preprocessing (Meta MMS alignment + acoustic extraction)
+    \item \textbf{Forced Alignment Execution:}
+    \begin{itemize}
+        \item \textit{English:} Montreal Forced Aligner (MFA v2.2) aligns phonemes against the \texttt{english\_mfa} acoustic model and pronunciation dictionary:
+\begin{lstlisting}[language=bash]
+python English/preprocess.py --config English/config.yaml --stage align --jobs 8
+# Staged input: preprocessing/English/mfa_input/
+# Output TextGrids: preprocessing/English/TextGrid/
+\end{lstlisting}
+        \item \textit{Telugu:} Meta MMS (\texttt{facebook/mms-1b-all}) CTC forced alignment extracts frame-level character boundaries directly on native Telugu aksharas:
+\begin{lstlisting}[language=bash]
+python Telugu/preprocess/run_telugu_mms_alignment.py
+# Output token alignments: preprocessing/Telugu/alignments/*.json
+\end{lstlisting}
+    \end{itemize}
+
+    \item \textbf{Acoustic Feature Extraction (\texttt{preprocessed\_data}):}
+    Computes 80-channel log mel-spectrograms (STFT hop 256, window 1024), continuous $F_0$ pitch contours via PyWorld Harvest, and short-time energy L2-norm. Global z-score normalization statistics ($\mu, \sigma$) are fitted strictly on the training partition and written to \path{preprocessed_data/stats.json}:
+\begin{lstlisting}[language=bash]
+# English feature extraction
+python English/preprocess.py --config English/config.yaml --stage convert
+
+# Telugu feature extraction
 python Telugu/preprocess.py --config Telugu/config.yaml
 \end{lstlisting}
+    Both pipelines output the unified FastSpeech~2 structure into \path{preprocessed_data/}:
+    \begin{quote}
+    \path{preprocessed_data/train.txt}, \path{preprocessed_data/val.txt}\\
+    \path{preprocessed_data/stats.json}, \path{preprocessed_data/speakers.json}\\
+    \path{preprocessed_data/mel/}, \path{preprocessed_data/pitch/}\\
+    \path{preprocessed_data/energy/}, \path{preprocessed_data/duration/}
+    \end{quote}
+\end{enumerate}
 
 \section{Model Training: The Kaggle Dual-GPU Method}
 Both models were trained for 100{,}000 steps using Kaggle Notebooks equipped with dual NVIDIA Tesla T4 GPUs (\textbf{GPU T4 x2}, 16~GB VRAM per GPU). The training procedure is encapsulated in two dedicated notebooks:
