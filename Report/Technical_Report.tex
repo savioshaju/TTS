@@ -371,24 +371,7 @@ Continuous pitch and energy values were normalized using global dataset mean and
 \begin{equation}
     \hat{F}_{0,t} = \frac{F_{0,t} - \mu_{F_0}}{\sigma_{F_0}}, \qquad \hat{E}_t = \frac{E_t - \mu_E}{\sigma_E}
 \end{equation}
-These statistics ($\mu_{F_0}, \sigma_{F_0}, \mu_E, \sigma_E$) are saved in \texttt{stats.json} (Table~\ref{tab:dataset_stats}) and inverted at inference. Figure~\ref{fig:feature_diagnostics} shows sample acoustic features and their global distributions.
-
-\begin{figure}[!htbp]
-\centering
-\begin{subfigure}[b]{0.48\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{figures/diagnostic_features_example.png}
-    \caption{Acoustic features for utterance \texttt{svarah\_0\_1248}.}
-\end{subfigure}
-\hfill
-\begin{subfigure}[b]{0.48\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{figures/diagnostic_feature_distributions.png}
-    \caption{Corpus feature distributions for z-score normalization.}
-\end{subfigure}
-\caption{Acoustic feature extraction verification. Left: aligned waveform, 80-channel log-mel spectrogram, continuous $F_0$ contour, and frame energy. Right: global pitch and energy distributions.}
-\label{fig:feature_diagnostics}
-\end{figure}
+These normalization statistics ($\mu_{F_0}, \sigma_{F_0}, \mu_E, \sigma_E$) are stored in \texttt{stats.json} (summarized in Table~\ref{tab:dataset_stats}) and inverted during inference to restore absolute physical pitch (Hz) and energy (dB).
 
 \FloatBarrier
 \vspace{1.5em}
@@ -414,7 +397,7 @@ The FastSpeech~2 architecture contains an FFT encoder, a variance adaptor, an FF
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.72\textwidth]{figures/model_architecture.png}
+\includegraphics[width=0.82\textwidth]{figures/model_architecture.png}
 \caption{FastSpeech~2 architecture with multi-task variance adaptor and vocoder pipeline.}
 \label{fig:architecture}
 \end{figure}
@@ -483,35 +466,37 @@ Figures~\ref{fig:loss_english} and~\ref{fig:loss_telugu} display the training an
 
 \begin{figure}[!htbp]
 \centering
-\begin{subfigure}{0.48\textwidth}
+\begin{subfigure}{0.88\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figures/english_training_loss.png}
-    \caption{English training loss.}
-\end{subfigure}
-\hfill
-\begin{subfigure}{0.48\textwidth}
+    \caption{English training loss (100{,}000 steps).}
+    \label{fig:loss_en_train}
+\end{subfigure}\\[0.8em]
+\begin{subfigure}{0.88\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figures/english_validation_loss.png}
-    \caption{English validation loss.}
+    \caption{English validation loss (100{,}000 steps).}
+    \label{fig:loss_en_val}
 \end{subfigure}
-\caption{English FastSpeech~2 training and validation loss curves (100{,}000 steps).}
+\caption{English FastSpeech~2 training and validation loss curves across 100{,}000 steps.}
 \label{fig:loss_english}
 \end{figure}
 
 \begin{figure}[!htbp]
 \centering
-\begin{subfigure}{0.48\textwidth}
+\begin{subfigure}{0.88\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figures/telugu_training_loss.png}
-    \caption{Telugu training loss.}
-\end{subfigure}
-\hfill
-\begin{subfigure}{0.48\textwidth}
+    \caption{Telugu training loss (100{,}000 steps).}
+    \label{fig:loss_te_train}
+\end{subfigure}\\[0.8em]
+\begin{subfigure}{0.88\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figures/telugu_validation_loss.png}
-    \caption{Telugu validation loss.}
+    \caption{Telugu validation loss (100{,}000 steps).}
+    \label{fig:loss_te_val}
 \end{subfigure}
-\caption{Telugu FastSpeech~2 training and validation loss curves (100{,}000 steps).}
+\caption{Telugu FastSpeech~2 training and validation loss curves across 100{,}000 steps.}
 \label{fig:loss_telugu}
 \end{figure}
 
@@ -577,7 +562,7 @@ Each test sentence was processed through the text front-end, FastSpeech~2 acoust
 E1 & Eng & The antidisestablishmentarianism movement gained\ldots & 5.16 & 444 & 212.1 Hz & 162--277 Hz & 64.5 dB & 6.40 syl/s \\
 E2a & Eng & The orchestra's conduct during the ceremony\ldots & 3.39 & 292 & 212.8 Hz & 187--240 Hz & 52.0 dB & 4.72 syl/s \\
 E2b & Eng & The researchers will conduct an experiment\ldots & 3.61 & 311 & 207.8 Hz & 162--255 Hz & 55.5 dB & 4.98 syl/s \\
-E3 & Eng & The rhyth m of the orchestra changed unexpectedly. & 2.26 & 195 & 207.9 Hz & 185--252 Hz & 60.5 dB & 5.31 syl/s \\
+E3 & Eng & The rhyth  m of the orchestra changed unexpectedly. & 2.26 & 195 & 207.9 Hz & 185--252 Hz & 60.5 dB & 5.31 syl/s \\
 E4 & Eng & The meeting will start at 10:45 AM on 12 November 2026\ldots & 5.91 & 509 & 214.2 Hz & 148--273 Hz & 54.4 dB & 4.57 syl/s \\
 \midrule
 T1 & Tel & \texttelugu{న్యూరోఫార్మకోలాజికల్ పరిశోధనలో\ldots} & 4.97 & 428 & 208.2 Hz & 153--317 Hz & 56.6 dB & 5.83 syl/s \\
@@ -600,7 +585,7 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.82\textwidth]{figures/E1_variance_profiles.png}
+\includegraphics[width=0.95\textwidth]{figures/E1_variance_profiles.png}
 \caption{Variance adaptor profiles (duration, pitch $F_0$, energy) for test sentence E1.}
 \label{fig:e1}
 \end{figure}
@@ -610,37 +595,39 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 \textbf{E2a (Noun):} \textit{``The orchestra's conduct during the ceremony was praised by the audience.''}\\
 \textbf{E2b (Verb):} \textit{``The researchers will conduct an experiment to evaluate the proposed method.''}
 \begin{itemize}
-    \item \textbf{Pronunciation Contrast:} As a noun (E2a), \textit{conduct} carries primary stress on the first syllable (\texttt{/k ɒ n d̪ ə k t̪/}). The initial vowel receives 82~ms duration and 56.8~dB energy. In E2b (verb), stress shifts to the second syllable (\texttt{/k ə n d̪ ʌ k t̪/}), reducing the first vowel to a schwa (42~ms duration, 48.2~dB energy) while boosting the second syllable energy to 57.9~dB ($+9.7$~dB gain).
+    \item \textbf{Pronunciation Contrast:} As a noun (E2a), \textit{conduct} carries primary stress on the first syllable (\texttt{/k ʌ n d̪ ə k t̪/}). The initial vowel receives 82~ms duration and 56.8~dB energy. In E2b (verb), stress shifts to the second syllable (\texttt{/k ə n d̪ ʌ k t̪/}), reducing the first vowel to a schwa (42~ms duration, 48.2~dB energy) while boosting the second syllable energy to 57.9~dB ($+9.7$~dB gain).
     \item \textbf{Mechanism:} Disambiguation is driven by the front-end passing the correct phoneme sequence; FastSpeech~2 renders the acoustic contrast clearly.
 \end{itemize}
 
 \begin{figure}[!htbp]
 \centering
-\begin{subfigure}{0.48\textwidth}
+\begin{subfigure}{0.92\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figures/E2a_variance_profiles.png}
-    \caption{E2a: Noun stress on first syllable (\texttt{/k ɒ n/}).}
-\end{subfigure}
-\hfill
-\begin{subfigure}{0.48\textwidth}
+    \caption{E2a: Noun stress on first syllable (\texttt{/k ʌ n/}).}
+    \label{fig:e2a}
+\end{subfigure}\\[1em]
+\begin{subfigure}{0.92\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figures/E2b_variance_profiles.png}
     \caption{E2b: Verb stress on second syllable (\texttt{/d̪ ʌ k t̪/}).}
+    \label{fig:e2b}
 \end{subfigure}
 \caption{Variance adaptor profiles for heteronym pair E2a (noun) and E2b (verb).}
 \label{fig:e2}
 \end{figure}
 \FloatBarrier
 
-\subsubsection{Sentence E3: Typographical Error Handling}
-\textit{``The rhyth m of the orchestra changed unexpectedly.''}
+\subsubsection{Sentence E3: Typographical Error and Split-Word Handling}
+\textit{``The rhyth  m of the orchestra changed unexpectedly.''}
 \begin{itemize}
-    \item \textbf{Normalization Behavior:} The space in \textit{rhyth m} is corrected during text normalization to \textit{rhythm} (\texttt{/ɹ ɪ d̪ ə m/}), resulting in smooth 2.26~s synthesis. An un-normalized test (\texttt{E3\_split.wav}) produces a 112~ms pause between split tokens.
+    \item \textbf{Origin of the Intra-Word Space:} The assignment prompt explicitly specifies the sentence text with an intentional space before the final character (\textit{rhyth  m}) and mandates: \textit{``Preserve the sentence text as provided.''} This deliberate typo evaluates how the text-to-speech front-end and acoustic model handle aberrant intra-word whitespace and split lexical tokens.
+    \item \textbf{Acoustic Realization:} When passed directly without whitespace normalization, the tokenizer treats \textit{rhyth} and \textit{m} as separate tokens, producing a 112~ms pause and an incomplete syllabic nucleus for \textit{rhyth}. When rule-based text normalization unifies the split fragments into \textit{rhythm} (\texttt{/ɹ ɪ d̪ ə m/}), synthesis is smooth and natural with a total duration of 2.26~s.
 \end{itemize}
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.68\textwidth]{figures/E3_variance_profiles.png}
+\includegraphics[width=0.92\textwidth]{figures/E3_variance_profiles.png}
 \caption{Variance adaptor profiles for test sentence E3.}
 \label{fig:e3}
 \end{figure}
@@ -655,7 +642,7 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.82\textwidth]{figures/E4_variance_profiles.png}
+\includegraphics[width=0.95\textwidth]{figures/E4_variance_profiles.png}
 \caption{Variance adaptor profiles for test sentence E4.}
 \label{fig:e4}
 \end{figure}
@@ -671,7 +658,7 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.82\textwidth]{figures/T1_variance_profiles.png}
+\includegraphics[width=0.95\textwidth]{figures/T1_variance_profiles.png}
 \caption{Variance adaptor profiles for Telugu test sentence T1.}
 \label{fig:t1}
 \end{figure}
@@ -686,31 +673,33 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 
 \begin{figure}[!htbp]
 \centering
-\begin{subfigure}{0.48\textwidth}
+\begin{subfigure}{0.92\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figures/T2a_variance_profiles.png}
     \caption{T2a: Focus on \texttelugu{పట్టు} (``grip'').}
-\end{subfigure}
-\hfill
-\begin{subfigure}{0.48\textwidth}
+    \label{fig:t2a}
+\end{subfigure}\\[1em]
+\begin{subfigure}{0.92\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figures/T2b_variance_profiles.png}
     \caption{T2b: Attributive \texttelugu{పట్టు} (``silk'').}
+    \label{fig:t2b}
 \end{subfigure}
 \caption{Variance adaptor profiles for Telugu semantic contrast pair T2a and T2b.}
 \label{fig:t2}
 \end{figure}
 \FloatBarrier
 
-\subsubsection{Sentence T3: Intra-Word Space}
+\subsubsection{Sentence T3: Intra-Word Space Handling}
 \texttelugu{పులి అడ  విలో నిశ్శబ్దంగా నడిచింది.}
 \begin{itemize}
-    \item \textbf{Acoustic Result:} The text contains an intra-word space in \texttelugu{అడ  విలో} (``in the forest''). Synthesizing it as written produces an intentional 95~ms pause. Both sub-tokens remain fully intelligible.
+    \item \textbf{Origin of the Intra-Word Space:} The assignment prompt intentionally inserts whitespace within \texttelugu{అడ  విలో} (``in the forest''), instructing: \textit{``Preserve the sentence text as provided.''} This evaluates how the akshara parser and acoustic model handle split words in native Telugu script.
+    \item \textbf{Acoustic Result:} Synthesizing the split token sequence (\texttelugu{అడ} + \texttelugu{విలో}) produces a 95~ms inter-token pause while preserving clear consonant-vowel articulation for each sub-word fragment without phonetic distortion.
 \end{itemize}
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.68\textwidth]{figures/T3_variance_profiles.png}
+\includegraphics[width=0.92\textwidth]{figures/T3_variance_profiles.png}
 \caption{Variance adaptor profiles for Telugu test sentence T3.}
 \label{fig:t3}
 \end{figure}
@@ -724,7 +713,7 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 
 \begin{figure}[!htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/T4_variance_profiles.png}
+\includegraphics[width=0.98\textwidth]{figures/T4_variance_profiles.png}
 \caption{Variance adaptor profiles for Telugu test sentence T4.}
 \label{fig:t4}
 \end{figure}

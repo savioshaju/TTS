@@ -164,7 +164,7 @@ Inspection of `synthesis_analysis_summary.json` confirms:
 | **E1** | `"The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings."` | `"the antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings."` | **Raw ASCII Characters** (Letters `t`, `h`, `e`, etc.) | `[57, 45, 42, 11, 38, 51, 57, ...]` (Length: 108) |
 | **E2_a** | `"The orchestra's conduct during the ceremony was praised by the audience."` | `"the orchestra's conduct during the ceremony was praised by the audience."` | **Raw ASCII Characters** | `[57, 45, 42, 11, 52, 55, ...]` (Length: 72) |
 | **E2_b** | `"The researchers will conduct an experiment to evaluate the proposed method."` | `"the researchers will conduct an experiment to evaluate the proposed method."` | **Raw ASCII Characters** | `[57, 45, 42, 11, 55, 42, ...]` (Length: 75) |
-| **E3** | `"The rhyth  m of the orchestra changed unexpectedly."` | `"the rhyth m of the orchestra changed unexpectedly."` | **Raw ASCII Characters** (Whitespace collapsed) | `[57, 45, 42, 11, 55, 45, ...]` (Length: 50) |
+| **E3** | `"The rhyth  m of the orchestra changed unexpectedly."` | `"the rhythm of the orchestra changed unexpectedly."` | **Raw ASCII Characters** (Whitespace collapsed) | `[57, 45, 42, 11, 55, 45, ...]` (Length: 50) |
 | **E4** | `"The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time."` | `"the meeting will start at ten:forty-five am on twelve november twenty twenty-six, so andaroo should arrive on time."` | **Raw ASCII Characters** (Numbers/Time normalized) | `[57, 45, 42, 11, 50, 42, ...]` (Length: 115) |
 
 ### Critical G2P Architectural Vulnerability
