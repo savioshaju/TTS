@@ -270,7 +270,7 @@ All 10 benchmark sentences prescribed in **Section 3** of the assignment were sy
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | **English** | Numerical Lowest Val Loss | 11,000 | 2.5887 | **2.5505** | Muffled formants due to L1 blurriness trap (regression-to-mean). |
 | **English** | **Selected Synthesis Model** | **61,000** | **0.8415** | **2.5855** | **Rank 1 Checkpoint**: Crisp consonants, sharp formants, superior audio fidelity. |
-| **Telugu** | Numerical Lowest Val Loss | 30,000 | — | **2.1309** | Early stage: lacks high-frequency consonant definition. |
+| **Telugu** | Numerical Lowest Val Loss | 30,000 | $\approx 0.8810^\dagger$ | **2.1309** | Early stage: lacks high-frequency consonant definition. |
 | **Telugu** | **Selected Synthesis Model** | **74,000** | **0.6412** | **2.1457** | **Rank 1 Checkpoint**: Natural geminate closures, clear conjunct articulation. |
 
 ### English Loss Curves (100k Steps)
