@@ -85,9 +85,10 @@ project/
 │           └── combined/            # 3-in-1 consolidated profile figures
 │
 ├── Report/
-│   ├── Technical_Report.pdf         # 27-page formal academic report (compiled XeLaTeX)
-│   ├── Technical_Report.tex         # LaTeX source code
-│   └── figures/                     # Verified diagnostic & variance figures
+│   └── Technical_Report.pdf         # Comprehensive formal technical report (compiled XeLaTeX)
+├── report_source/                   # LaTeX source files and raw figures
+│   ├── Technical_Report.tex
+│   └── figures/
 ├── README.md                        # Documentation, download & reproduction guide
 └── requirements.txt                 # Exact pinned dependencies
 ```
@@ -292,4 +293,4 @@ All 10 benchmark sentences prescribed in **Section 3** of the assignment were sy
 - [x] Universal HiFi-GAN vocoder pre-bundled at `English/inference/hifigan/` and `Telugu/inference/hifigan/`.
 - [x] Pre-computed `stats.json`, `speakers.json`, and pronunciation lexicons pre-committed in repository.
 - [x] FastSpeech 2 checkpoints hosted on permanent [Google Drive](https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing).
-- [x] Full 27-page academic technical report compiled with XeLaTeX at [`Report/Technical_Report.pdf`](Report/Technical_Report.pdf).
+- [x] Full technical report compiled with XeLaTeX at [`Report/Technical_Report.pdf`](Report/Technical_Report.pdf).

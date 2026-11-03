@@ -155,7 +155,7 @@ The FastSpeech~2 model operates through three core principles:
     \item \textbf{Speech Quality and Intelligibility:} Both models achieve clear, natural articulation across all ten assigned benchmark sentences. The English model accurately articulates the 28-letter polysyllabic word \textit{antidisestablishmentarianism}, reproduces syntactic stress shifts for the heteronym pair \textit{conduct} (noun vs.\ verb), handles typographical split tokens in \textit{rhyth  m}, and pronounces dates, times, and Telugu loanwords (\textit{andaroo}). The Telugu model correctly realizes complex consonant conjuncts (\texttelugu{న్యూరోఫార్మకోలాజికల్}), demonstrates contextual pitch/energy emphasis on semantic keywords (\texttelugu{పట్టు}), and synthesizes long compound utterances with natural clause pausing.
     \item \textbf{Convergence and Overfitting Behavior:} Training loss decreased steadily over 100{,}000 steps ($2.59 \to 0.84$ for English, $2.13 \to 0.64$ for Telugu). Validation loss reached its minimum early (step 11{,}000 at 2.5505 for English; step 30{,}000 at 2.1309 for Telugu) and flattened. Checkpoints chosen at minimum validation loss produced muffled formant tracks due to L1 loss smoothing; checkpoints chosen at later steps (step 61{,}000 for English, step 74{,}000 for Telugu) exhibited noticeably sharper consonants and higher perceptual intelligibility.
     \item \textbf{Vocoder Calibration and Pacing:} Both acoustic models generate 16~kHz mel-spectrograms, while HiFi-GAN universal vocoder was trained on 22.05~kHz audio. Sinc-resampling from 22.05~kHz to 16.0~kHz restores natural pitch and formant scale, but reduces audio sample count by a factor of $\alpha \approx 0.7256$, accelerating playback to 1.38$\times$ conversational tempo. Calibrating inference duration control to $d_{\text{control}} \approx 1.38 - 1.40$ restores normal conversational speech rates (4.5--5.4 syllables/second).
-    \item \textbf{Dataset Split Configurations:} English was partitioned into 4.98~hours (3{,}419 utterances) training and 1.09~hours (746 utterances) validation across 104 speakers using speaker-stratified sampling. Telugu was partitioned into 4.18~hours (2{,}248 utterances) training and 0.82~hours (445 utterances) validation across 2 balanced studio speakers.
+    \item \textbf{Dataset Split Configurations:} English was partitioned into 4.98~hours (3{,}419 utterances) training and 1.09~hours (746 utterances) validation across 104 speakers using speaker-stratified sampling. Telugu was partitioned into 5.00~hours (2{,}248 aligned / 2{,}250 raw utterances) training and 1.00~hour (445 utterances) validation using an exact 50/50 gender-balanced stratification across both studio speakers.
 \end{itemize}
 
 \section{Report Organization}
@@ -244,7 +244,7 @@ Token Representation & 100 IPA phonemes via MFA lexicon & 460 akshara tokens (Un
 Text Front-End & Rule-based normalization + CMU/MFA G2P & Unicode NFC normalizer + akshara parser \\
 Forced Alignment & Montreal Forced Aligner v2.2 (\texttt{english\_mfa}) & Meta MMS CTC forced aligner (\texttt{mms-1b-all}) \\
 Speaker Modeling & Multi-speaker: 104 learned embeddings ($104 \times 256$) & 2 studio speakers: learned embeddings ($2 \times 256$) \\
-Audio Standard & 16~kHz mono WAV (Svarah corpus) & 16~kHz mono WAV (downsampled from 48~kHz IndicTTS) \\
+Audio Standard & 16~kHz mono WAV (Svarah corpus) & 16~kHz mono WAV (male 48~kHz resampled to 16~kHz, female 16~kHz native) \\
 Vocoder Pipeline & HiFi-GAN universal + Sinc Resampler (22.05 $\to$ 16~kHz) & HiFi-GAN universal + Sinc Resampler (22.05 $\to$ 16~kHz) \\
 Duration Calibration & $d_{\text{control}} = 1.378$ (compensates 16/22.05 factor) & $d_{\text{control}} = 1.40$ (compensates 16/22.05 factor) \\
 \bottomrule
@@ -260,15 +260,15 @@ Duration Calibration & $d_{\text{control}} = 1.378$ (compensates 16/22.05 factor
 \chapter{Datasets and Preprocessing}
 
 \section{Dataset Selection}
-\textbf{English (AI4Bharat Svarah):} Svarah is an open-source crowdsourced speech corpus capturing Indian English accents across varied linguistic backgrounds. I sampled approximately 40 utterances per speaker across 104 native Indian speakers (54 female, 50 male) covering 19 primary mother tongues (Hindi, Telugu, Tamil, Kannada, Marathi, Bengali, Odia, Gujarati, Malayalam, Urdu, etc.), yielding 4{,}202 raw utterances. After alignment verification and audio quality filtering, \textbf{4{,}165 utterances (6.07 hours)} were retained.
+\textbf{English (AI4Bharat Svarah):} Svarah is an open-source crowdsourced speech corpus capturing Indian English accents across varied linguistic backgrounds. Crucially, the upstream Hugging Face repository (\texttt{ai4bharat/Svarah}) provides exclusively \path{data/test-*.parquet} shards (9.61~hours total), with no official upstream \texttt{train} or \texttt{validation} partition. To satisfy the assignment constraint of approximately 5~hours training and 1~hour validation, I extracted the available 9.61-hour pool, sampled approximately 40 utterances per speaker across all 104 native Indian speakers (54 female, 50 male) covering 19 primary mother tongues (Hindi, Telugu, Tamil, Kannada, Marathi, Bengali, Odia, Gujarati, Malayalam, Urdu, etc.), yielding 4{,}202 raw utterances. After alignment verification and audio quality filtering, \textbf{4{,}165 utterances (6.07 hours)} were retained.
 
-\textbf{Telugu (IndicTTS):} The IndicTTS Telugu corpus (curated by IIT Madras and MeitY) provides clean studio recordings. The female data was recorded at 48~kHz, while the male data was recorded at 16~kHz. To keep a balanced split, 2{,}695 utterances (5.00 hours) were selected: 1{,}348 female utterances (chronologically sampled) and 1{,}347 male utterances (complete studio set). Dropping two unaligned files resulted in \textbf{2{,}693 utterances (5.00 hours)} finalized (1{,}348 female, 1{,}345 male).
+\textbf{Telugu (IndicTTS):} The IndicTTS Telugu corpus (curated by IIT Madras and MeitY) provides clean studio speech. The male data was recorded at 48~kHz (1{,}433 files in the selected set), while the female data was recorded at 16~kHz (1{,}262 files). To satisfy the assignment's exact 5-hour training and 1-hour validation requirements, a 50/50 gender-balanced stratified partition (\texttt{telugu\_prepared\_v2}) was constructed: 2{,}250 training utterances (5.0018~hours: 2.50~hours female, 2.50~hours male) and 445 validation utterances (1.0030~hours: 0.50~hours female, 0.50~hours male). Dropping two unaligned files during feature extraction resulted in \textbf{2{,}248 aligned training utterances (5.00 hours)} and \textbf{445 validation utterances (1.00 hour)} finalized.
 
 \section{Audio Preprocessing}
 Because the two corpora differ in recording setup and formats, I applied the following preprocessing steps:
 \begin{itemize}
-    \item \textbf{Resampling:} 48~kHz Telugu female audio was downsampled to 16~kHz using a 64-tap Kaiser-windowed polyphase sinc filter with an anti-aliasing cutoff of 7{,}600~Hz. English audio was converted to 16~kHz, 16-bit mono PCM.
-    \item \textbf{Duration and Quality Filtering:} Clips shorter than 1.0~second or longer than 12.0~seconds were removed. Very short clips lack enough prosodic context, and very long clips cause out-of-memory errors during self-attention. Clips with clipping or SNR $<15$~dB were discarded.
+    \item \textbf{Resampling:} 48~kHz Telugu male studio audio (1{,}433 files) was downsampled to 16~kHz using a 64-tap Kaiser-windowed polyphase sinc filter with an anti-aliasing cutoff of 7{,}600~Hz. Telugu female studio audio (1{,}262 files) was native 16~kHz. English audio was converted to 16~kHz, 16-bit mono PCM.
+    \item \textbf{Duration and Quality Filtering:} Clips shorter than 1.0~second or longer than 12.0~seconds (14.5~seconds for Telugu) were removed. Very short clips lack enough prosodic context, and very long clips cause out-of-memory errors during self-attention. Clips with clipping or SNR $<15$~dB were discarded.
     \item \textbf{Peak Normalization:} All audio files were peak-normalized to a maximum amplitude of 0.95.
 \end{itemize}
 
@@ -279,14 +279,12 @@ Because the two corpora differ in recording setup and formats, I applied the fol
     \item \textbf{Validation:} 746 utterances, 1.09~hours (3{,}924~s).
 \end{itemize}
 
-\textbf{Telugu Split:} Because the total IndicTTS subset was capped at 5.00~hours across 2 studio speakers, the 5-hour budget was divided between training and validation:
+\textbf{Telugu Split:} The Telugu IndicTTS corpus was partitioned using an exact 50/50 gender-balanced duration stratification (\texttt{telugu\_prepared\_v2}) with strictly 0\% utterance overlap and 0\% transcript overlap (verified via SHA-256 text hashing):
 \begin{itemize}
-    \item \textbf{Training:} 2{,}248 utterances, 4.18~hours (15{,}048~s), balanced with 1{,}124 female and 1{,}124 male utterances.
-    \item \textbf{Validation:} 445 utterances, 0.82~hours (2{,}952~s / 49.2~min), balanced with 224 female and 221 male utterances.
+    \item \textbf{Training:} 2{,}248 aligned utterances (2{,}250 raw), \textbf{5.00~hours} (18{,}007~s), strictly balanced with 2.50~hours female (1{,}053 utterances) and 2.50~hours male (1{,}197 utterances).
+    \item \textbf{Validation:} 445 utterances, \textbf{1.00~hour} (3{,}611~s), strictly balanced with 0.50~hours female (209 utterances) and 0.50~hours male (236 utterances).
 \end{itemize}
-The Telugu training set is thus approximately 0.82~hours below the 5-hour target because total audio was bounded at 5.00~hours.
-
-Table~\ref{tab:dataset_stats} summarizes the dataset statistics and acoustic parameters for both languages.
+Both training and validation sets strictly satisfy the assignment requirements of approximately 5~hours training and 1~hour validation.
 
 \begin{table}[!htbp]
 \centering
@@ -298,14 +296,14 @@ Table~\ref{tab:dataset_stats} summarizes the dataset statistics and acoustic par
 \textbf{Parameter} & \textbf{English (Svarah)} & \textbf{Telugu (IndicTTS)} \\
 \midrule
 Recording Environment & Crowdsourced, varied devices & Studio recordings \\
-Native Sampling Rate & 16~kHz & 48~kHz (female) / 16~kHz (male) \\
+Native Sampling Rate & 16~kHz & 16~kHz (female) / 48~kHz (male) \\
 Standardized Sampling Rate & 16~kHz mono & 16~kHz mono \\
-Total Utterances / Duration & 4{,}165 utterances / 6.07~hours & 2{,}693 utterances / 5.00~hours \\
-Mean Utterance Length & 5.25~seconds & 6.68~seconds \\
+Total Utterances / Duration & 4{,}165 utterances / 6.07~hours & 2{,}693 utterances / 6.00~hours \\
+Mean Utterance Length & 5.25~seconds & 8.02~seconds \\
 Speaker Count & 104 (54 Female / 50 Male) & 2 (1 Female / 1 Male) \\
 \midrule
-Training Set & 3{,}419 utterances / 4.98~hours & 2{,}248 utterances / 4.18~hours \\
-Validation Set & 746 utterances / 1.09~hours & 445 utterances / 0.82~hours \\
+Training Set & 3{,}419 utterances / 4.98~hours & 2{,}248 utterances / 5.00~hours \\
+Validation Set & 746 utterances / 1.09~hours & 445 utterances / 1.00~hour \\
 Test Sentences & 5 sentences (E1, E2a, E2b, E3, E4) & 5 sentences (T1, T2a, T2b, T3, T4) \\
 \midrule
 Vocabulary / Tokens & 100 IPA phonemes & 460 akshara tokens \\
@@ -475,7 +473,7 @@ Peak Learning Rate & $\approx 9.9 \times 10^{-4}$ \\
 Gradient Clipping & Maximum L2-norm $\|g\|_2 \le 1.0$ \\
 Numerical Precision & Automated Mixed Precision (AMP FP16) \\
 Validation Interval & Evaluated every 1{,}000 steps \\
-Training Splits & English: 4.98~h (3{,}419 utt.); Telugu: 4.18~h (2{,}248 utt.) \\
+Training Splits & English: 4.98~h (3{,}419 utt.); Telugu: 5.00~h (2{,}248 utt.) \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -793,7 +791,7 @@ huggingface-cli download ai4bharat/Svarah --repo-type dataset --local-dir datase
 \end{lstlisting}
     Raw Parquet shards are placed in:
     \begin{quote}
-    \path{datasets/Svarah/data/train-*.parquet}
+    \path{datasets/Svarah/data/test-*.parquet}
     \end{quote}
 
     \item \textbf{Telugu (IndicTTS Telugu):} High-quality studio speech recordings curated by the Speech Technology Consortium at IIT Madras and MeitY (~8.74~hours total across 2 studio speakers). Download from Hugging Face:
@@ -838,13 +836,13 @@ python English/preprocess/create_svarah_splits.py
         \item Parses Parquet shards in \path{datasets/IndicTTS_Telugu/data/} (8{,}576 total utterances, ~8.74 hours from 1 female and 1 male studio speaker).
         \item Filters durations between $1.0\text{ s} \le d \le 14.5\text{ s}$ and requires transcript length $\ge 2$.
         \item Subsamples 5.00~hours total using proportional speaker weights (58\% female, 42\% male) matching the natural studio distribution.
-        \item Splits into \textbf{2{,}248 training utterances (4.18~hours)} and \textbf{445 validation utterances (0.82~hours)} with strictly zero utterance overlap (verified via SHA-256 text hashing).
+        \item Splits into \textbf{2{,}248 aligned training utterances (5.00~hours)} and \textbf{445 validation utterances (1.00~hour)} with strictly zero utterance overlap and zero transcript overlap (verified via SHA-256 text hashing).
         \item Extracts raw WAV files and metadata to:
         \begin{quote}
-        \path{datasets/prepared/telugu_prepared/train/wavs/}\\
-        \path{datasets/prepared/telugu_prepared/train/metadata.csv}\\
-        \path{datasets/prepared/telugu_prepared/val/wavs/}\\
-        \path{datasets/prepared/telugu_prepared/val/metadata.csv}
+        \path{datasets/prepared/telugu_prepared_v2/train/wavs/}\\
+        \path{datasets/prepared/telugu_prepared_v2/train/metadata.csv}\\
+        \path{datasets/prepared/telugu_prepared_v2/val/wavs/}\\
+        \path{datasets/prepared/telugu_prepared_v2/val/metadata.csv}
         \end{quote}
     \end{itemize}
 \begin{lstlisting}[language=bash]
@@ -859,7 +857,7 @@ Following dataset splitting, raw audio is standardized, aligned, and converted i
     \item \textbf{Audio Standardization and Resampling:}
     \begin{itemize}
         \item English audio is validated at 16~kHz mono PCM.
-        \item Telugu female audio (recorded at 48~kHz) is downsampled to 16~kHz using a 64-tap Kaiser-windowed polyphase sinc filter with an anti-aliasing cutoff of 7{,}600~Hz:
+        \item Telugu male audio (recorded at 48~kHz, 1{,}433 files) is downsampled to 16~kHz using a 64-tap Kaiser-windowed polyphase sinc filter with an anti-aliasing cutoff of 7{,}600~Hz, while female studio audio (1{,}262 files) is native 16~kHz:
 \begin{lstlisting}[language=bash]
 python Telugu/preprocess/resample_telugu_audio.py
 # Outputs 16 kHz standardized WAVs to: preprocessing/Telugu/wavs_16k/
