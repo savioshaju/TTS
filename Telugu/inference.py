@@ -12,9 +12,19 @@ import unicodedata
 import re
 from scipy.io import wavfile
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 PACKAGE_ROOT = os.path.dirname(os.path.abspath(__file__))
-if PACKAGE_ROOT not in sys.path:
-    sys.path.insert(0, PACKAGE_ROOT)
+INFERENCE_PKG = os.path.join(PACKAGE_ROOT, "inference")
+BASE_DIR = os.path.dirname(PACKAGE_ROOT)
+for p in [INFERENCE_PKG, PACKAGE_ROOT, BASE_DIR]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
 
 from utils.model import get_model, get_vocoder, vocoder_infer
 from utils.tools import to_device
@@ -143,11 +153,60 @@ def main():
     parser.add_argument("--output_wav", type=str, default="telugu_synthesized.wav", help="Destination WAV file")
     parser.add_argument("--pitch_control", type=float, default=1.0)
     parser.add_argument("--energy_control", type=float, default=1.0)
-    parser.add_argument("--duration_control", type=float, default=1.0)
+    parser.add_argument("--duration_control", type=float, default=1.40, help="Duration control (default: 1.40 for calibrated pacing)")
+    parser.add_argument("--test_all", action="store_true", help="Synthesize all official assignment benchmark test sentences")
     args = parser.parse_args()
 
-    with open(args.config, "r", encoding="utf-8") as f:
+    if args.test_all:
+        try:
+            import generate_telugu_assignment_audios
+            print("Running full official Telugu benchmark synthesis...")
+            generate_telugu_assignment_audios.main()
+            return
+        except Exception as e:
+            print(f"Error running benchmark generator: {e}")
+
+    config_path = args.config
+    if not os.path.exists(config_path):
+        candidate = os.path.join(PACKAGE_ROOT, "config.yaml")
+        if os.path.exists(candidate):
+            config_path = candidate
+        else:
+            candidate2 = os.path.join(PACKAGE_ROOT, "Telugu", "config.yaml")
+            if os.path.exists(candidate2):
+                config_path = candidate2
+
+    with open(config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
+
+    # Fallback to pre-bundled stats.json and speakers.json in repository if preprocessed_data is absent
+    prep_path = cfg["path"]["preprocessed_path"]
+    if not os.path.isabs(prep_path):
+        prep_path = os.path.join(PACKAGE_ROOT, prep_path)
+    if not os.path.exists(os.path.join(prep_path, "stats.json")):
+        for candidate in [PACKAGE_ROOT, os.path.join(PACKAGE_ROOT, "inference")]:
+            if os.path.exists(os.path.join(candidate, "stats.json")):
+                cfg["path"]["preprocessed_path"] = candidate
+                break
+
+    ckpt_path = args.checkpoint
+    if not os.path.exists(ckpt_path):
+        candidates = [
+            os.path.join(PACKAGE_ROOT, "checkpoints", "best_model.pth"),
+            os.path.join(PACKAGE_ROOT, "..", "checkpoints", "best_model.pth"),
+            os.path.join(PACKAGE_ROOT, "output", "checkpoints", "best_model.pth"),
+            "/kaggle/working/Telugu/checkpoints/best_model.pth",
+            "/kaggle/working/Telugu/checkpoints/latest_checkpoint.pth",
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                ckpt_path = c
+                break
+
+    if not os.path.exists(ckpt_path):
+        print(f"Error: Checkpoint not found at {args.checkpoint} or common locations.")
+        print("Please download best_model.pth from Google Drive to Telugu/checkpoints/best_model.pth")
+        sys.exit(1)
 
     configs = (
         {"dataset": cfg["dataset"], "path": cfg["path"], "preprocessing": cfg["preprocessing"]},
@@ -160,9 +219,9 @@ def main():
     phone_str = "{" + " ".join(tokens) + "}"
     seq = text_to_sequence(phone_str, cleaners)
 
-    print(f"Loading model checkpoint from {args.checkpoint}...")
+    print(f"Loading model checkpoint from {ckpt_path}...")
     model = get_model(args, configs, device, train=False)
-    ckpt = torch.load(args.checkpoint, map_location=device, weights_only=False)
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     state = ckpt["model"] if "model" in ckpt else ckpt
     model.load_state_dict(state)
     model.eval()
