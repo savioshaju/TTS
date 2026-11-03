@@ -199,7 +199,7 @@ project/
 During setup and initial verification of the reference code, I identified and fixed three bugs:
 \begin{enumerate}
     \item \textbf{Energy Control Bug (\texttt{model/modules.py}):} In the variance adaptor, \texttt{p\_control} was accidentally passed to the energy lookup instead of \texttt{e\_control}. Modifying pitch inadvertently altered energy, while energy scaling had no effect. I updated the function arguments to properly decouple pitch and energy.
-    \item \textbf{Multi-GPU Device Assignment (\texttt{utils/tools.py}):} Tensors were hardcoded to \texttt{torch.device("cuda")}, ignoring the specific GPU device ordinal assigned by \texttt{DataParallel}. This caused runtime device mismatch errors during multi-GPU training. I updated tensor assignments to dynamically match the input batch device.
+    \item \textbf{Multi-GPU Device Placement} in \texttt{utils/tools.py}: Tensors were assigned to \texttt{"cuda"} without device ordinals, causing device mismatch under \texttt{DataParallel}. I refactored tensor allocations to dynamically match the batch input device.
     \item \textbf{Text Cleaner Phoneme Fallback (\texttt{text/\_\_init\_\_.py}):} When input strings lacked enclosing braces \texttt{\{...\}}, the cleaner silently fell back to raw ASCII character indices. Because the model was trained on phoneme IDs, this caused phoneme index mismatch and generated noise. I added an explicit validation check.
 \end{enumerate}
 
@@ -315,7 +315,7 @@ Telugu is written in an abugida script where the primary written unit is the aks
 \begin{enumerate}
     \item \textbf{Unicode Normalization:} Text is converted to Unicode NFC. Zero-width joiners and non-joiners are cleaned, and viramas (\textit{halant}) are validated to keep consonant conjuncts (\textit{samyuktakshara}) intact. Numbers are expanded into Telugu words.
     \item \textbf{Akshara Segmentation:} Words are parsed into akshara units using regular expressions. Consonant clusters conjoined by viramas are grouped as single atomic tokens (e.g., \texttelugu{ప్ర} $\to$ \textit{pra}, \texttelugu{భా} $\to$ \textit{bhā}, \texttelugu{న్యూ} $\to$ \textit{nyū}).
-    \item \textbf{Vocabulary:} This segmentation produces 460 unique akshara tokens representing all vowel-consonant combinations present in the IndicTTS training set.
+    \item \textbf{Vocabulary:} Segmentation yields 460 unique akshara tokens representing all vowel-consonant combinations in the IndicTTS training set.
 \end{enumerate}
 
 \FloatBarrier
@@ -424,7 +424,7 @@ The training objective is a composite multi-task loss:
 where $\mathcal{L}_{\text{mel}} = \|S_{\text{mel}} - \hat{S}_{\text{mel}}\|_1$ and $\mathcal{L}_{\text{postnet}} = \|S_{\text{mel}} - (\hat{S}_{\text{mel}} + \Delta S_{\text{mel}})\|_1$ optimize L1 spectrogram reconstruction, and $\mathcal{L}_{\text{pitch}}$, $\mathcal{L}_{\text{energy}}$, and $\mathcal{L}_{\text{duration}}$ are Mean Squared Errors (MSE) on normalized targets.
 
 \subsection{HiFi-GAN Vocoder Adaptation}
-Audio synthesis uses the pre-trained universal HiFi-GAN vocoder~\cite{hifigan} (\texttt{generator\_universal.pth.tar}). HiFi-GAN was pre-trained on 22{,}050~Hz audio with hop 256, whereas our acoustic models produce 16{,}000~Hz mel-spectrograms with hop 256. 
+Audio synthesis uses the universal HiFi-GAN vocoder~\cite{hifigan} (\texttt{generator\_universal.pth.tar}). HiFi-GAN was pre-trained on 22{,}050~Hz audio with hop 256, whereas our acoustic models produce 16{,}000~Hz mel-spectrograms with hop 256. 
 
 Directly interpreting 22.05~kHz vocoder output as 16~kHz downshifts pitch and formants by:
 \begin{equation}
@@ -632,7 +632,7 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 \subsubsection{Sentence E3: Typographical Error Handling}
 \textit{``The rhyth m of the orchestra changed unexpectedly.''}
 \begin{itemize}
-    \item \textbf{Normalization Behavior:} The space in \textit{rhyth m} is corrected during text normalization to \textit{rhythm} (\texttt{/ɹ ɪ d̪ ə m/}), resulting in smooth 2.26~s synthesis. A test without normalization (\texttt{E3\_split.wav}) produces a 112~ms pause between the split fragments.
+    \item \textbf{Normalization Behavior:} The space in \textit{rhyth m} is corrected during text normalization to \textit{rhythm} (\texttt{/ɹ ɪ d̪ ə m/}), resulting in smooth 2.26~s synthesis. An un-normalized test (\texttt{E3\_split.wav}) produces a 112~ms pause between split tokens.
 \end{itemize}
 
 \begin{figure}[!htbp]
@@ -714,7 +714,7 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 \FloatBarrier
 
 \subsubsection{Sentence T4: Long Compound Sentence}
-\texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు ప్రారంభమవుతుంది, సమయానికి సిద్ధంగా ఉంచండి.}
+\textit{\texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు}\linebreak\texttelugu{ప్రారంభమవుతుంది, సమయానికి సిద్ధంగా ఉంచండి.}}
 \begin{itemize}
     \item \textbf{Expansion and Cadence:} Numbers are expanded into Telugu words (\texttelugu{రెండు వేల ఇరవై ఆరు}, \texttelugu{పన్నెండవ తేదీ}, \texttelugu{పది నలభై ఐదు గంటలకు}). Total duration is 7.22~s (622 frames, speech rate 5.40~syl/s). A 380~ms clause pause cleanly separates the announcement from the instruction.
 \end{itemize}
@@ -764,47 +764,118 @@ T4 & Tel & \texttelugu{ఈ సమావేశం 2026 నవంబర్ 12వ �
 % ------------------------------------------------------------------
 \section{Reproducibility}
 
-\subsection{Software Dependencies}
-The codebase runs on Python 3.11 with PyTorch 2.5, TorchAudio, NumPy, SciPy, Librosa, PyWorld, and Matplotlib. Montreal Forced Aligner 2.2 is used for English alignment, and HuggingFace Transformers (\texttt{facebook/mms-1b-all}) is used for Telugu MMS alignment. Pinned versions are listed in \texttt{requirements.txt}.
+\subsection{Environment and Dependencies}
+The codebase runs on Python 3.11 with PyTorch 2.5, TorchAudio, NumPy, SciPy, Librosa, PyWorld, Matplotlib, and HuggingFace Transformers. Pinned package versions are listed in \texttt{requirements.txt}. All scripts use dynamic relative path resolution via \texttt{os.path.abspath}, eliminating hardcoded drive letters so the repository can be executed directly from any folder or platform.
 
-\subsection{Repository Execution}
-All scripts in the repository use dynamic relative paths (\path{os.path.dirname(os.path.abspath(__file__))}), eliminating hardcoded absolute drive paths. The project can be run directly from any directory.
-
-\subsection{Model Checkpoints}
+\subsection{Dataset Download and Directory Setup}
 \begin{itemize}
-    \item \textbf{HiFi-GAN Vocoder:} Pre-bundled directly in the repository at:\\
-    \path{English/inference/hifigan/generator_universal.pth.tar} and\\
-    \path{Telugu/inference/hifigan/generator_universal.pth.tar}. No external vocoder download is required.
-    \item \textbf{FastSpeech~2 Checkpoints:} Acoustic model weights are hosted on Google Drive:
-    \url{https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing}
-    \begin{itemize}
-        \item English Checkpoint: Download \texttt{best\_model.pth} (Step 61{,}000) and place into \path{English/checkpoints/best_model.pth}.
-        \item Telugu Checkpoint: Download \texttt{best\_model.pth} (Step 74{,}000) and place into \path{Telugu/checkpoints/best_model.pth}.
-    \end{itemize}
+    \item \textbf{English (AI4Bharat Svarah):} Multi-speaker Indian English crowdsourced dataset (104 speakers). Download using the Hugging Face CLI:
+\begin{lstlisting}[language=bash]
+pip install huggingface_hub
+huggingface-cli download ai4bharat/svarah --repo-type dataset --local-dir datasets/raw/svarah
+\end{lstlisting}
+    Audio files and transcripts are extracted to:
+    \begin{quote}
+    Audio: \path{datasets/raw/svarah/audio/}\\
+    Metadata: \path{datasets/raw/svarah/metadata.csv}
+    \end{quote}
+    \item \textbf{Telugu (IndicTTS):} Clean studio recordings (IIT Madras / MeitY). Download from the official portal at:
+    \newline\url{https://www.iitm.ac.in/donlab/tts/database.php}
+    \newline Audio files are extracted to:
+    \begin{quote}
+    Female Studio (48~kHz): \path{datasets/raw/telugu/female/wavs/}\\
+    Male Studio (16~kHz): \path{datasets/raw/telugu/male/wavs/}
+    \end{quote}
 \end{itemize}
 
-\subsection{Execution Commands}
-From the repository root, run the following commands:
+\subsection{Dataset Preprocessing Pipeline}
+The preprocessing scripts perform audio normalization, forced alignment, and acoustic feature extraction:
+\begin{enumerate}
+    \item \textbf{Audio Standardization:} 48~kHz Telugu female audio is downsampled to 16~kHz using a 64-tap Kaiser-windowed sinc filter (7,600~Hz cutoff). Clips with duration $<1.0$~s, $>12.0$~s, or SNR $<15$~dB are removed. All audio is peak-normalized to 0.95 amplitude.
+    \item \textbf{Forced Alignment:}
+    \begin{itemize}
+        \item \textit{English:} Uses Montreal Forced Aligner (MFA v2.2) with the \texttt{english\_mfa} acoustic model to generate 100 IPA phoneme target durations.
+        \item \textit{Telugu:} Uses Meta MMS (\texttt{facebook/mms-1b-all}) Wav2Vec2 CTC emission logits with Viterbi search to align 460 native akshara tokens (minimum duration $\ge 1$ frame).
+    \end{itemize}
+    \item \textbf{Acoustic Extraction:} Computes 80-bin mel-spectrograms, continuous $F_0$ (PyWorld Harvest), and frame energy. Normalization statistics ($\mu, \sigma$) are saved to \texttt{stats.json}.
+\end{enumerate}
 
+To run preprocessing from the repository root:
 \begin{lstlisting}[language=bash]
-# 1. Environment Installation
-pip install -r requirements.txt
+# English preprocessing (MFA forced alignment + acoustic extraction)
+python English/preprocess.py --config English/config.yaml --stage all --jobs 8
 
-# 2. English Synthesis (Inference on Benchmark Sentences)
-python English/inference.py --config English/config.yaml --test_all
+# Telugu preprocessing (Meta MMS alignment + acoustic extraction)
+python Telugu/preprocess.py --config Telugu/config.yaml
+\end{lstlisting}
 
-# Custom English sentence synthesis:
-python English/inference.py --config English/config.yaml --text "Good morning to all, how are you?"
+\subsection{Model Training: The Kaggle Dual-GPU Method}
+Both models were trained for 100{,}000 steps using Kaggle Notebooks equipped with dual NVIDIA Tesla T4 GPUs (\textbf{GPU T4 x2}, 16~GB VRAM per GPU). The training procedure is encapsulated in two dedicated notebooks:
+\begin{itemize}
+    \item English: \texttt{English/English\_FastSpeech2\_Kaggle.ipynb}
+    \item Telugu: \texttt{Telugu/Telugu\_FastSpeech2\_Kaggle.ipynb}
+\end{itemize}
 
-# 3. Telugu Synthesis (Inference on Benchmark Sentences)
-python Telugu/inference.py --config Telugu/config.yaml --test_all
+The notebook workflow consists of five stages:
+\begin{enumerate}
+    \item \textbf{GPU \& Environment Setup:} Detects dual T4 GPUs and initializes PyTorch \texttt{DataParallel} with AMP FP16. Batch size is set to 16 (8 utterances per GPU).
+    \item \textbf{Dataset Extraction:} Staged preprocessed data archives (\texttt{preprocessed\_data.zip}) are uncompressed into the local scratch disk for high-throughput I/O.
+    \item \textbf{Checkpoint Auto-Discovery:} Checks \texttt{checkpoints/} for the latest step to allow seamless resumption.
+    \item \textbf{Two-Phase Training Workflow:} Due to Kaggle's 12-hour session limit, training was executed across two sequential runs per language:
+    \begin{itemize}
+        \item \textit{Phase 1:} Trains from step 0 to $\sim$53k/56k steps; checkpoint and full optimizer state are serialized to persistent cloud storage.
+        \item \textit{Phase 2:} Resumes from the Phase 1 checkpoint to reach 100{,}000 steps without loss spikes.
+    \end{itemize}
+    \item \textbf{Memory Safeguards:} Periodic garbage collection and \texttt{malloc\_trim(0)} prevent memory fragmentation during multi-GPU runs.
+\end{enumerate}
 
-# Custom Telugu sentence synthesis:
-python Telugu/inference.py --config Telugu/config.yaml --text-file custom_telugu.txt
-
-# 4. End-to-End Training (Requires prepared dataset)
+Alternatively, training can be executed directly on any local or server GPU environment:
+\begin{lstlisting}[language=bash]
+# Standalone training commands
 python English/train.py --config English/config.yaml
 python Telugu/train.py  --config Telugu/config.yaml
+\end{lstlisting}
+
+\subsection{Model Weights and Checkpoints}
+\begin{itemize}
+    \item \textbf{HiFi-GAN Vocoder:} Pre-bundled directly in the repository at:
+    \begin{quote}
+    \texttt{English/inference/hifigan/generator\_universal.pth.tar}\\
+    \texttt{Telugu/inference/hifigan/generator\_universal.pth.tar}
+    \end{quote}
+    No external vocoder download is required.
+    \item \textbf{FastSpeech~2 Checkpoints:} Due to file size limits ($>$300~MB), acoustic model checkpoints are hosted on Google Drive:
+    \begin{quote}
+    \url{https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing}
+    \end{quote}
+    Download \texttt{best\_model.pth} for each language and place into:
+    \begin{quote}
+    English: \texttt{English/checkpoints/best\_model.pth} (Step 61{,}000)\\
+    Telugu: \texttt{Telugu/checkpoints/best\_model.pth} (Step 74{,}000)
+    \end{quote}
+\end{itemize}
+
+\subsection{Inference and Evaluation Commands}
+To synthesize all ten prescribed benchmark test sentences (E1--E4 and T1--T4):
+\begin{lstlisting}[language=bash]
+# English benchmark suite (E1, E2a, E2b, E3, E4)
+python English/inference.py --config English/config.yaml --test_all
+
+# Telugu benchmark suite (T1, T2a, T2b, T3, T4)
+python Telugu/inference.py --config Telugu/config.yaml --test_all
+\end{lstlisting}
+
+To synthesize custom sentences directly from the terminal with duration calibration:
+\begin{lstlisting}[language=bash]
+# Custom English sentence synthesis
+python English/inference.py --config English/config.yaml \
+    --text "Good morning to all, how are you?" \
+    --duration_control 1.378 --speaker_id 27 --output_wav sample_en.wav
+
+# Custom Telugu sentence synthesis (pass text file or string)
+python Telugu/inference.py --config Telugu/config.yaml \
+    --text-file custom_telugu.txt \
+    --duration_control 1.40 --speaker_id 0 --output_wav sample_te.wav
 \end{lstlisting}
 
 \FloatBarrier
