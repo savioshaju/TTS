@@ -14,7 +14,7 @@ np.random.seed(SEED)
 
 BASE_DIR = r"d:\Savio Shaju\TTS"
 IND_DATA_DIR = os.path.join(BASE_DIR, "datasets", "IndicTTS_Telugu", "data")
-OUT_DIR = os.path.join(BASE_DIR, "datasets", "prepared", "telugu_prepared_v2")
+OUT_DIR = os.path.join(BASE_DIR, "datasets", "prepared", "telugu_prepared")
 
 os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -94,10 +94,10 @@ val_records = []
 train_target_sec = 18000.0  # 5.0 hours
 val_target_sec = 3600.0     # 1.0 hour
 
-# Female: 50%, Male: 50% (50/50 balanced gender stratification)
+# Female: 58%, Male: 42% (matching natural filtered distribution)
 spk_weights = {
-    "telugufemale": 0.50,
-    "telugumale": 0.50
+    "telugufemale": 0.58,
+    "telugumale": 0.42
 }
 
 for spk, weight in spk_weights.items():
