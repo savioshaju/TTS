@@ -480,7 +480,7 @@ Training Splits & English: 4.98~h (3{,}419 utt.); Telugu: 4.18~h (2{,}248 utt.) 
 \end{tabularx}
 \end{table}
 
-Because cloud GPU sessions were limited to 12 hours, training was run in two stages per language (Phase 1 up to ~53k/56k steps, Phase 2 resuming up to 100{,}000 steps). Saving and restoring optimizer states ensured smooth continuation.
+Because cloud GPU environments enforce session runtime limits, training was resumed seamlessly from the serialized checkpoint and optimizer state, completing the full 100{,}000 steps with continuous loss convergence.
 
 \section{Loss Curves}
 Figures~\ref{fig:loss_english} and~\ref{fig:loss_telugu} display the training and validation loss curves over the 100{,}000 training steps.
@@ -806,21 +806,14 @@ huggingface-cli download SPRINGLab/IndicTTS_Telugu --repo-type dataset --local-d
     \path{datasets/IndicTTS_Telugu/data/train-*.parquet}
     \end{quote}
 
-    \item \textbf{Automated Download Script:} Alternatively, both datasets can be downloaded automatically using the repository utility:
-\begin{lstlisting}[language=bash]
-# Download Telugu IndicTTS
-python tools/download_datasets.py --only indictts
 
-# Download English Svarah (requires HF_TOKEN environment variable)
-python tools/download_datasets.py --only svarah --token <YOUR_HF_TOKEN>
-\end{lstlisting}
 \end{itemize}
 
 \section{5-Hour Dataset Preparation and Subsampling}
 To satisfy the assignment constraint of approximately 5~hours of training audio and 1~hour of validation audio per language, automated dataset preparation scripts parse the raw Parquet shards, filter audio quality, perform stratified sampling, and export partitioned WAV files and manifests:
 
 \begin{enumerate}
-    \item \textbf{English Preparation (\texttt{tools/create\_svarah\_splits.py}):}
+    \item \textbf{English Preparation (\texttt{English/preprocess/create\_svarah\_splits.py}):}
     \begin{itemize}
         \item Parses Parquet shards in \path{datasets/Svarah/data/}, calculating audio duration directly from binary WAV headers.
         \item Identifies 104 unique speakers via demographic metadata (gender, age group, native state/district, mother tongue).
@@ -837,7 +830,7 @@ To satisfy the assignment constraint of approximately 5~hours of training audio 
     \end{itemize}
 \begin{lstlisting}[language=bash]
 # Run English 5-hour dataset extraction and splitting
-python tools/create_svarah_splits.py
+python English/preprocess/create_svarah_splits.py
 \end{lstlisting}
 
     \item \textbf{Telugu Preparation (\texttt{Telugu/preprocess/create\_telugu\_splits.py}):}
@@ -917,12 +910,8 @@ The notebook workflow consists of five stages:
 \begin{enumerate}
     \item \textbf{GPU \& Environment Setup:} Detects dual T4 GPUs and initializes PyTorch \texttt{DataParallel} with AMP FP16. Batch size is set to 16 (8 utterances per GPU).
     \item \textbf{Dataset Extraction:} Staged preprocessed data archives (\texttt{preprocessed\_data.zip}) are uncompressed into the local scratch disk for high-throughput I/O.
-    \item \textbf{Checkpoint Resumption:} Checks \texttt{checkpoints/} for the latest step to automatically resume training.
-    \item \textbf{Two-Phase Training Workflow:} Due to Kaggle's 12-hour session limit, training was executed across two sequential runs per language:
-    \begin{itemize}
-        \item \textit{Phase 1:} Trains from step 0 to $\sim$53k/56k steps; checkpoint and full optimizer state are serialized to persistent cloud storage.
-        \item \textit{Phase 2:} Resumes from the Phase 1 checkpoint to reach 100{,}000 steps without loss spikes.
-    \end{itemize}
+    \item \textbf{Automatic State Restoration:} Periodically saves model checkpoints and optimizer states to disk.
+    \item \textbf{Session Resumption:} Because Kaggle enforces a 12-hour session runtime limit, training seamlessly resumes from the latest serialized checkpoint to complete the full 100{,}000 steps across sessions without loss disruption.
     \item \textbf{Memory Safeguards:} Periodic garbage collection and \texttt{malloc\_trim(0)} prevent memory fragmentation during multi-GPU runs.
 \end{enumerate}
 
