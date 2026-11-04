@@ -1,7 +1,7 @@
 """
 English FastSpeech 2 — Assignment Test Sentence Synthesis
 ==========================================================
-Generates E1, E2_a, E2_b, E3, E3_split, E4 audio files and variance
+Generates E1, E2_a, E2_b, E3, E4 audio files and variance
 adaptor plots as required by the assignment (Sections 3 & 4 of
 D:\\Savio Shaju\\TTS\\Ref\\Assignment.pdf).
 
@@ -88,14 +88,13 @@ print(f"Stats: Pitch μ={pitch_mean:.2f} σ={pitch_std:.2f} | Energy μ={energy_
 
 # ── Output directories ──────────────────────────────────────────────────────
 RESULTS_DIR      = os.path.join(BASE_DIR, "Results", "English")
-AUDIO_DIR_1      = os.path.join(RESULTS_DIR, "test_generated_audios")
-AUDIO_DIR_2      = os.path.join(RESULTS_DIR, "generated_audios")
+AUDIO_DIR        = os.path.join(RESULTS_DIR, "test_generated_audios")
 PLOT_DIR         = os.path.join(RESULTS_DIR, "variance_adaptor_plots")
 PLOT_DUR_DIR     = os.path.join(PLOT_DIR, "duration")
 PLOT_PITCH_DIR   = os.path.join(PLOT_DIR, "pitch")
 PLOT_ENERGY_DIR  = os.path.join(PLOT_DIR, "energy")
 
-for d in [AUDIO_DIR_1, AUDIO_DIR_2, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR]:
+for d in [AUDIO_DIR, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # ── Load FastSpeech 2 model ─────────────────────────────────────────────────
@@ -185,15 +184,6 @@ test_sentences = {
             "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
         ),
         "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/. Smooth unified audio.",
-    },
-    "E3_split": {
-        "text": "The rhyth  m of the orchestra changed unexpectedly.  [diagnostic: split input]",
-        # Diagnostic: split input with intra-word pause between 'rhyth' and 'm'
-        "phonemes": (
-            "{d̪ ə ɹ ɪ d̪ @sp m̩ ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
-            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
-        ),
-        "description": "Diagnostic split: 'rhyth' and 'm' separated by intra-word pause as described in report.",
     },
     "E4": {
         "text": (
@@ -285,12 +275,10 @@ for sent_id, info in test_sentences.items():
         wavs    = vocoder_infer(mel_predicted, vocoder, model_config, preprocess_config, lengths=lengths)
         wav     = wavs[0]
 
-    wav_path_1 = os.path.join(AUDIO_DIR_1, f"{sent_id}.wav")
-    wav_path_2 = os.path.join(AUDIO_DIR_2, f"{sent_id}.wav")
+    wav_path   = os.path.join(AUDIO_DIR, f"{sent_id}.wav")
     audio_dur  = len(wav) / sampling_rate
-    wavfile.write(wav_path_1, sampling_rate, wav)
-    wavfile.write(wav_path_2, sampling_rate, wav)
-    print(f"  Saved: {wav_path_1} and {wav_path_2} ({audio_dur:.2f} s, {mel_len} mel frames)")
+    wavfile.write(wav_path, sampling_rate, wav)
+    print(f"  Saved: {wav_path} ({audio_dur:.2f} s, {mel_len} mel frames)")
 
     # Denormalise pitch and energy
     pitch_hz   = p_pred_norm * pitch_std  + pitch_mean

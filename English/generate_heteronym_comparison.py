@@ -65,33 +65,7 @@ cleaners = preprocess_config["preprocessing"]["text"]["text_cleaners"]
 sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
 hop_length = preprocess_config["preprocessing"]["stft"]["hop_length"]
 
-# 1. Synthesize E3 split variation
-e3_split_phonemes = "{d̪ ə sp ɹ ɪ d̪ sp m̩ sp ɒ ʋ sp d̪ ə sp ɒː k ə s ʈ ɹ ə sp tʃ eː n dʒ ɖ sp ə n ɛ k s p ɛ k ʈʲ ɪ ɖ ʎ i}"
-seq = np.array(text_to_sequence(e3_split_phonemes, cleaners))
-text_tensor = torch.from_numpy(np.array([seq])).long().to(device)
-text_lens = torch.from_numpy(np.array([len(seq)])).long().to(device)
-speakers_tensor = torch.from_numpy(np.array([target_spk_id])).long().to(device)
-
-with torch.no_grad():
-    output = model(
-        speakers_tensor,
-        text_tensor,
-        text_lens,
-        max(text_lens).item(),
-        p_control=1.0,
-        e_control=1.0,
-        d_control=1.0
-    )
-    mel_predicted = output[1].transpose(1, 2)
-    lengths = output[9] * hop_length
-    wavs = vocoder_infer(mel_predicted, vocoder, model_config, preprocess_config, lengths=lengths)
-    wav = wavs[0]
-    
-wav_path = os.path.join(AUDIO_DIR, "E3_split.wav")
-wavfile.write(wav_path, sampling_rate, wav)
-print(f"Saved E3_split.wav: {wav_path} (Duration: {len(wav)/sampling_rate:.2f} s)")
-
-# 2. Extract and Plot Heteronym Comparison: E2_a conduct vs E2_b conduct
+# Extract and Plot Heteronym Comparison: E2_a conduct vs E2_b conduct
 # Load synthesis results summary
 with open(os.path.join(RESULTS_DIR, "synthesis_analysis_summary.json"), "r", encoding="utf-8") as f:
     res = json.load(f)
