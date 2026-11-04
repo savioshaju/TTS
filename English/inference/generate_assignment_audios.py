@@ -25,29 +25,51 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.io import wavfile
+import argparse
 
 sys.stdout.reconfigure(encoding='utf-8')
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.dirname(os.path.dirname(SCRIPT_DIR))
-PKG_DIR  = SCRIPT_DIR
+BASE_DIR = os.path.dirname(SCRIPT_DIR)
+PKG_DIR = os.path.join(SCRIPT_DIR, "inference")
+if not os.path.exists(PKG_DIR):
+    PKG_DIR = os.path.join(BASE_DIR, "kaggle_staging", "English_FastSpeech2_Kaggle")
 if PKG_DIR not in sys.path:
     sys.path.insert(0, PKG_DIR)
 
 from model import FastSpeech2
 import hifigan
 from utils.model import vocoder_infer, get_vocoder
+from utils.tools import get_mask_from_lengths
 from text import text_to_sequence
+
+# Vowel taxonomy for selective minimum duration floor
+VOWELS = {
+    'a', 'aj', 'aw', 'aː', 'e', 'ej', 'eː', 'i', 'iː', 'o', 'ow', 'oː', 
+    'u', 'uː', 'æ', 'ɐ', 'ɑ', 'ɑː', 'ɒ', 'ɒː', 'ɔ', 'ɔj', 'ə', 'əw', 
+    'ɚ', 'ɛ', 'ɛː', 'ɜ', 'ɜː', 'ɝ', 'ɪ', 'ʉ', 'ʉː', 'ʊ'
+}
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
 # ── Config ─────────────────────────────────────────────────────────────────
-cfg_path = os.path.join(BASE_DIR, "English", "config.yaml")
+cfg_path = os.path.join(SCRIPT_DIR, "config.yaml")
 with open(cfg_path, "r", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
-cfg["path"]["preprocessed_path"] = os.path.join(BASE_DIR, "preprocessing", "English")
+stats_candidates = [
+    os.path.join(SCRIPT_DIR, "stats.json"),
+    os.path.join(SCRIPT_DIR, "inference", "stats.json"),
+    os.path.join(BASE_DIR, "preprocessing", "English", "stats.json"),
+]
+resolved_stats_dir = SCRIPT_DIR
+for sc in stats_candidates:
+    if os.path.exists(sc):
+        resolved_stats_dir = os.path.dirname(sc)
+        break
+
+cfg["path"]["preprocessed_path"] = resolved_stats_dir
 preprocess_config = {
     "dataset":        cfg["dataset"],
     "path":           cfg["path"],
@@ -56,7 +78,7 @@ preprocess_config = {
 model_config = cfg["model"]
 
 # ── Stats ───────────────────────────────────────────────────────────────────
-stats_path = os.path.join(cfg["path"]["preprocessed_path"], "stats.json")
+stats_path = os.path.join(resolved_stats_dir, "stats.json")
 with open(stats_path, "r") as f:
     stats = json.load(f)
     pitch_mean, pitch_std   = stats["pitch"][2],  stats["pitch"][3]
@@ -66,13 +88,14 @@ print(f"Stats: Pitch μ={pitch_mean:.2f} σ={pitch_std:.2f} | Energy μ={energy_
 
 # ── Output directories ──────────────────────────────────────────────────────
 RESULTS_DIR      = os.path.join(BASE_DIR, "Results", "English")
-AUDIO_DIR        = os.path.join(RESULTS_DIR, "test_generated_audios")
+AUDIO_DIR_1      = os.path.join(RESULTS_DIR, "test_generated_audios")
+AUDIO_DIR_2      = os.path.join(RESULTS_DIR, "generated_audios")
 PLOT_DIR         = os.path.join(RESULTS_DIR, "variance_adaptor_plots")
 PLOT_DUR_DIR     = os.path.join(PLOT_DIR, "duration")
 PLOT_PITCH_DIR   = os.path.join(PLOT_DIR, "pitch")
 PLOT_ENERGY_DIR  = os.path.join(PLOT_DIR, "energy")
 
-for d in [AUDIO_DIR, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR]:
+for d in [AUDIO_DIR_1, AUDIO_DIR_2, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # ── Load FastSpeech 2 model ─────────────────────────────────────────────────
@@ -126,10 +149,10 @@ test_sentences = {
             "The antidisestablishmentarianism movement gained considerable "
             "momentum during the parliamentary proceedings."
         ),
-        # Pause only at sentence boundary (.)
+        # Clean, natural phonemes without rare/exotic phone distortions
         "phonemes": (
             "{d̪ ə a n ʈ i ɖ ɪ s ɪ s ʈ a b l ɪ ʃ m ɛ n ʈ ɛː ɹ i ə n ɪ z ə m "
-            "m ʉː ʋ m ɛ n ʈ ɡ eː n ɖ k ə n s ɪ ɖ ə ɹ ə b ə l "
+            "m uː ʋ m ɛ n ʈ ɡ eː n ɖ k ə n s ɪ ɖ ə ɹ ə b ə l "
             "m oː m ɛ n ʈ ə m ɖ ʊ ɹ ɪ ŋ d̪ ə p ɑː l ə m ɛ n ʈ ə ɹ i "
             "p ɹ ə s iː ɖ ɪ n z}"
         ),
@@ -137,10 +160,10 @@ test_sentences = {
     },
     "E2_a": {
         "text": "The orchestra's conduct during the ceremony was praised by the audience.",
-        # Noun heteronym: /k ɒ n ɖ ə k ʈ/ — trochaic stress (CONduct) with natural inter-word boundary before 'during'
+        # Noun heteronym: /k ɒ n ɖ ə k ʈ/ — trochaic stress (CONduct) with audible word boundary before 'during'
         "phonemes": (
             "{d̪ ə ɒː k ə s ʈ ɹ ə s k ɒ n ɖ ə k ʈ @sp ɖ ʊ ɹ ɪ ŋ d̪ ə "
-            "s ɛ ɹ ɪ m ə ɲ i ʋ ə z p ɹ eː z ɖ b aj d̪ ə ɒː ɖ i ə n s}"
+            "s ɛ ɹ ɪ m ə n i ʋ ə z p ɹ eː z ɖ b aj d̪ ə ɒː ɖ i ə n s}"
         ),
         "description": "Heteronym 'conduct' as NOUN: trochaic stress (/k ɒ n ɖ ə k ʈ/) with inter-word pause before 'during'.",
     },
@@ -149,34 +172,55 @@ test_sentences = {
         # Verb heteronym: /k ə n ɖ ə k ʈ/ — iambic stress (conDUCT)
         "phonemes": (
             "{d̪ ə ɹ iː s ɜː tʃ ə z ʋ ɪ l k ə n ɖ ə k ʈ ə n "
-            "ɛ k s p ɛ ɾ ɪ m ɛ n ʈ ʈ ʉː ɪ ʋ a ʎ ʉ eː ʈ d̪ ə "
+            "ɛ k s p ɛ ɾ ɪ m ɛ n ʈ ʈ uː ɪ ʋ a l j u eː ʈ d̪ ə "
             "p ɹ ə p oː z ɖ m ɛ t̪ ə ɖ}"
         ),
         "description": "Heteronym 'conduct' as VERB: iambic stress (/k ə n ɖ ə k ʈ/).",
     },
     "E3": {
         "text": "The rhyth  m of the orchestra changed unexpectedly.",
-        # "rhyth  m" normalised → /ɹ ɪ d̪ ə m/ (canonical 'rhythm')
+        # "rhyth  m" normalised → /ɹ ɪ d̪ ə m/ (canonical clean rhythm)
         "phonemes": (
             "{d̪ ə ɹ ɪ d̪ ə m ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
-            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈʲ ɪ ɖ ʎ i}"
+            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
         ),
-        "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/. No artificial pause.",
+        "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/. Smooth unified audio.",
+    },
+    "E3_split": {
+        "text": "The rhyth  m of the orchestra changed unexpectedly.  [diagnostic: split input]",
+        # Diagnostic: split input with intra-word pause between 'rhyth' and 'm'
+        "phonemes": (
+            "{d̪ ə ɹ ɪ d̪ @sp m̩ ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
+            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
+        ),
+        "description": "Diagnostic split: 'rhyth' and 'm' separated by intra-word pause as described in report.",
     },
     "E4": {
         "text": (
             "The meeting will start at 10:45 AM on 12 November 2026, "
             "so andaroo should arrive on time."
         ),
-        # Pauses only at comma boundary and sentence end
+        # Authentic loanword phonetics: pause before 'andaroo' and dental/tap /a n d̪ a ɾ uː/
         "phonemes": (
-            "{d̪ ə mʲ iː ʈʲ ɪ n ʋ ɪ l s ʈ ɑː ʈ a ʈ ʈ ɛ n f ɒː ʈʲ i f aj ʋ "
-            "eː ɛ m ɒ n ʈʷ ɛ l ʋ n ə ʋ ɛ m b ə ɾ ʈʷ ɛ n ʈʲ i ʈʷ ɛ n ʈʲ i s ɪ k s @sp "
-            "s oː a n d̪ ə ɾ uː ʃ ʊ ɖ ə ɾ aj ʋ ɒ n ʈ aj m}"
+            "{d̪ ə m iː ʈ ɪ ŋ ʋ ɪ l s ʈ ɑː ʈ a ʈ ɛ n f ɒː ʈ i f aj ʋ "
+            "eː ɛ m ɒ n t̪ ʋ ɛ l ʋ n ə ʋ ɛ m b ə ɹ t̪ ʋ ɛ n ʈ i t̪ ʋ ɛ n ʈ i s ɪ k s @sp "
+            "s oː @sp a n d̪ a ɾ uː ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
         ),
-        "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed. Pause at comma only.",
+        "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed with clear pause and authentic phonetics.",
     },
 }
+
+parser = argparse.ArgumentParser(description="English FastSpeech 2 — Assignment Test Sentence Synthesis")
+parser.add_argument("--d_control", type=float, default=1.25, help="Duration control factor (default: 1.25 for calibrated clarity)")
+parser.add_argument(
+    "--mode",
+    type=str,
+    default="duration_improved",
+    choices=["baseline", "duration_improved"],
+    help="Duration regulation mode: 'duration_improved' (default, calibrated vowel-protected) or 'baseline'",
+)
+cli_args, _ = parser.parse_known_args()
+print(f"Mode: {cli_args.mode} | Duration Control: {cli_args.d_control}")
 
 synthesis_results = {}
 
@@ -197,26 +241,56 @@ for sent_id, info in test_sentences.items():
     max_len    = max(txt_lens).item()
 
     with torch.no_grad():
-        output = model(
-            spk_tensor, txt_tensor, txt_lens, max_len,
-            p_control=1.0, e_control=1.0, d_control=1.0,
-        )
+        src_mask = get_mask_from_lengths(txt_lens, max_len)
+        output = model.encoder(txt_tensor, src_mask)
+        if model.speaker_emb is not None:
+            output = output + model.speaker_emb(spk_tensor).unsqueeze(1).expand(-1, max_len, -1)
 
-        mel_predicted  = output[1].transpose(1, 2)
-        p_pred_norm    = output[2][0].cpu().numpy()
-        e_pred_norm    = output[3][0].cpu().numpy()
-        log_d_pred     = output[4][0].cpu().numpy()
-        d_rounded      = output[5][0].cpu().numpy()
-        mel_len        = output[9][0].item()
+        log_d = model.variance_adaptor.duration_predictor(output, src_mask)
+        d_raw = torch.clamp(torch.exp(log_d) - 1, min=0).squeeze(0)
 
-        lengths = output[9] * hop_length
+        if cli_args.mode == "baseline":
+            d_base = torch.round(d_raw)
+            d_scaled = torch.clamp(torch.round(d_base * cli_args.d_control), min=0)
+        else:
+            # Phase 4 calibrated duration regulation + selective vowel nucleus protection
+            d_scaled = torch.round(d_raw * cli_args.d_control)
+            for idx, tok in enumerate(tokens):
+                if tok in VOWELS and d_scaled[idx] < 2.0:
+                    d_scaled[idx] = 2.0
+
+        d_scaled_batch = d_scaled.unsqueeze(0)
+
+        # Pitch and energy
+        p_pred, pitch_emb = model.variance_adaptor.get_pitch_embedding(output, None, src_mask, 1.0)
+        output = output + pitch_emb
+        e_pred, energy_emb = model.variance_adaptor.get_energy_embedding(output, None, src_mask, 1.0)
+        output = output + energy_emb
+
+        # Length Regulation & Decoder
+        output, mel_len_t = model.variance_adaptor.length_regulator(output, d_scaled_batch, None)
+        mel_mask = get_mask_from_lengths(mel_len_t)
+        mel_output, mel_mask = model.decoder(output, mel_mask)
+        mel_output = model.mel_linear(mel_output)
+        postnet_output = model.postnet(mel_output) + mel_output
+        mel_predicted = postnet_output.transpose(1, 2)
+
+        p_pred_norm    = p_pred[0].cpu().numpy()
+        e_pred_norm    = e_pred[0].cpu().numpy()
+        log_d_pred     = log_d[0].cpu().numpy()
+        d_rounded      = d_scaled.cpu().numpy()
+        mel_len        = mel_len_t[0].item()
+
+        lengths = mel_len_t * hop_length
         wavs    = vocoder_infer(mel_predicted, vocoder, model_config, preprocess_config, lengths=lengths)
         wav     = wavs[0]
 
-    wav_path   = os.path.join(AUDIO_DIR, f"{sent_id}.wav")
+    wav_path_1 = os.path.join(AUDIO_DIR_1, f"{sent_id}.wav")
+    wav_path_2 = os.path.join(AUDIO_DIR_2, f"{sent_id}.wav")
     audio_dur  = len(wav) / sampling_rate
-    wavfile.write(wav_path, sampling_rate, wav)
-    print(f"  Saved: {wav_path}  ({audio_dur:.2f} s, {mel_len} mel frames)")
+    wavfile.write(wav_path_1, sampling_rate, wav)
+    wavfile.write(wav_path_2, sampling_rate, wav)
+    print(f"  Saved: {wav_path_1} and {wav_path_2} ({audio_dur:.2f} s, {mel_len} mel frames)")
 
     # Denormalise pitch and energy
     pitch_hz   = p_pred_norm * pitch_std  + pitch_mean
@@ -274,6 +348,6 @@ for sent_id, info in test_sentences.items():
           f"Pitch μ={pitch_hz.mean():.0f} Hz | Energy μ={energy_db.mean():.1f} dB")
 
 print(f"\n{'='*56}")
-print(f"Audio files  → {AUDIO_DIR}")
+print(f"Audio files  → {AUDIO_DIR_1} and {AUDIO_DIR_2}")
 print(f"Plots        → {PLOT_DIR}")
 print("English Assignment Synthesis completed successfully!")

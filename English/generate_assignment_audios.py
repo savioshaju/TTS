@@ -88,13 +88,14 @@ print(f"Stats: Pitch μ={pitch_mean:.2f} σ={pitch_std:.2f} | Energy μ={energy_
 
 # ── Output directories ──────────────────────────────────────────────────────
 RESULTS_DIR      = os.path.join(BASE_DIR, "Results", "English")
-AUDIO_DIR        = os.path.join(RESULTS_DIR, "test_generated_audios")
+AUDIO_DIR_1      = os.path.join(RESULTS_DIR, "test_generated_audios")
+AUDIO_DIR_2      = os.path.join(RESULTS_DIR, "generated_audios")
 PLOT_DIR         = os.path.join(RESULTS_DIR, "variance_adaptor_plots")
 PLOT_DUR_DIR     = os.path.join(PLOT_DIR, "duration")
 PLOT_PITCH_DIR   = os.path.join(PLOT_DIR, "pitch")
 PLOT_ENERGY_DIR  = os.path.join(PLOT_DIR, "energy")
 
-for d in [AUDIO_DIR, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR]:
+for d in [AUDIO_DIR_1, AUDIO_DIR_2, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # ── Load FastSpeech 2 model ─────────────────────────────────────────────────
@@ -148,10 +149,10 @@ test_sentences = {
             "The antidisestablishmentarianism movement gained considerable "
             "momentum during the parliamentary proceedings."
         ),
-        # Pause only at sentence boundary (.)
+        # Clean, natural phonemes without rare/exotic phone distortions
         "phonemes": (
             "{d̪ ə a n ʈ i ɖ ɪ s ɪ s ʈ a b l ɪ ʃ m ɛ n ʈ ɛː ɹ i ə n ɪ z ə m "
-            "m ʉː ʋ m ɛ n ʈ ɡ eː n ɖ k ə n s ɪ ɖ ə ɹ ə b ə l "
+            "m uː ʋ m ɛ n ʈ ɡ eː n ɖ k ə n s ɪ ɖ ə ɹ ə b ə l "
             "m oː m ɛ n ʈ ə m ɖ ʊ ɹ ɪ ŋ d̪ ə p ɑː l ə m ɛ n ʈ ə ɹ i "
             "p ɹ ə s iː ɖ ɪ n z}"
         ),
@@ -159,10 +160,10 @@ test_sentences = {
     },
     "E2_a": {
         "text": "The orchestra's conduct during the ceremony was praised by the audience.",
-        # Noun heteronym: /k ɒ n ɖ ə k ʈ/ — trochaic stress (CONduct) with natural inter-word boundary before 'during'
+        # Noun heteronym: /k ɒ n ɖ ə k ʈ/ — trochaic stress (CONduct) with audible word boundary before 'during'
         "phonemes": (
             "{d̪ ə ɒː k ə s ʈ ɹ ə s k ɒ n ɖ ə k ʈ @sp ɖ ʊ ɹ ɪ ŋ d̪ ə "
-            "s ɛ ɹ ɪ m ə ɲ i ʋ ə z p ɹ eː z ɖ b aj d̪ ə ɒː ɖ i ə n s}"
+            "s ɛ ɹ ɪ m ə n i ʋ ə z p ɹ eː z ɖ b aj d̪ ə ɒː ɖ i ə n s}"
         ),
         "description": "Heteronym 'conduct' as NOUN: trochaic stress (/k ɒ n ɖ ə k ʈ/) with inter-word pause before 'during'.",
     },
@@ -171,32 +172,41 @@ test_sentences = {
         # Verb heteronym: /k ə n ɖ ə k ʈ/ — iambic stress (conDUCT)
         "phonemes": (
             "{d̪ ə ɹ iː s ɜː tʃ ə z ʋ ɪ l k ə n ɖ ə k ʈ ə n "
-            "ɛ k s p ɛ ɾ ɪ m ɛ n ʈ ʈ ʉː ɪ ʋ a ʎ ʉ eː ʈ d̪ ə "
+            "ɛ k s p ɛ ɾ ɪ m ɛ n ʈ ʈ uː ɪ ʋ a l j u eː ʈ d̪ ə "
             "p ɹ ə p oː z ɖ m ɛ t̪ ə ɖ}"
         ),
         "description": "Heteronym 'conduct' as VERB: iambic stress (/k ə n ɖ ə k ʈ/).",
     },
     "E3": {
         "text": "The rhyth  m of the orchestra changed unexpectedly.",
-        # "rhyth  m" normalised → /ɹ ɪ d̪ ə m/ (canonical 'rhythm')
+        # "rhyth  m" normalised → /ɹ ɪ d̪ ə m/ (canonical clean rhythm)
         "phonemes": (
             "{d̪ ə ɹ ɪ d̪ ə m ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
-            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈʲ ɪ ɖ ʎ i}"
+            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
         ),
-        "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/. No artificial pause.",
+        "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/. Smooth unified audio.",
+    },
+    "E3_split": {
+        "text": "The rhyth  m of the orchestra changed unexpectedly.  [diagnostic: split input]",
+        # Diagnostic: split input with intra-word pause between 'rhyth' and 'm'
+        "phonemes": (
+            "{d̪ ə ɹ ɪ d̪ @sp m̩ ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
+            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
+        ),
+        "description": "Diagnostic split: 'rhyth' and 'm' separated by intra-word pause as described in report.",
     },
     "E4": {
         "text": (
             "The meeting will start at 10:45 AM on 12 November 2026, "
             "so andaroo should arrive on time."
         ),
-        # Canonical clean phonemes without noisy palatal/rhotic vibration artifacts
+        # Authentic loanword phonetics: pause before 'andaroo' and dental/tap /a n d̪ a ɾ uː/
         "phonemes": (
-            "{d̪ ə m iː ʈ ɪ ŋ ʋ ɪ l s ʈ ɑː ʈ a ʈ ʈ ɛ n f ɒː ʈ i f aj ʋ "
+            "{d̪ ə m iː ʈ ɪ ŋ ʋ ɪ l s ʈ ɑː ʈ a ʈ ɛ n f ɒː ʈ i f aj ʋ "
             "eː ɛ m ɒ n t̪ ʋ ɛ l ʋ n ə ʋ ɛ m b ə ɹ t̪ ʋ ɛ n ʈ i t̪ ʋ ɛ n ʈ i s ɪ k s @sp "
-            "s oː a n d̪ a ɹ uː ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
+            "s oː @sp a n d̪ a ɾ uː ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
         ),
-        "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed. Pause at comma only.",
+        "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed with clear pause and authentic phonetics.",
     },
 }
 
@@ -275,10 +285,12 @@ for sent_id, info in test_sentences.items():
         wavs    = vocoder_infer(mel_predicted, vocoder, model_config, preprocess_config, lengths=lengths)
         wav     = wavs[0]
 
-    wav_path   = os.path.join(AUDIO_DIR, f"{sent_id}.wav")
+    wav_path_1 = os.path.join(AUDIO_DIR_1, f"{sent_id}.wav")
+    wav_path_2 = os.path.join(AUDIO_DIR_2, f"{sent_id}.wav")
     audio_dur  = len(wav) / sampling_rate
-    wavfile.write(wav_path, sampling_rate, wav)
-    print(f"  Saved: {wav_path} ({audio_dur:.2f} s, {mel_len} mel frames)")
+    wavfile.write(wav_path_1, sampling_rate, wav)
+    wavfile.write(wav_path_2, sampling_rate, wav)
+    print(f"  Saved: {wav_path_1} and {wav_path_2} ({audio_dur:.2f} s, {mel_len} mel frames)")
 
     # Denormalise pitch and energy
     pitch_hz   = p_pred_norm * pitch_std  + pitch_mean
@@ -336,6 +348,6 @@ for sent_id, info in test_sentences.items():
           f"Pitch μ={pitch_hz.mean():.0f} Hz | Energy μ={energy_db.mean():.1f} dB")
 
 print(f"\n{'='*56}")
-print(f"Audio files  → {AUDIO_DIR}")
+print(f"Audio files  → {AUDIO_DIR_1} and {AUDIO_DIR_2}")
 print(f"Plots        → {PLOT_DIR}")
 print("English Assignment Synthesis completed successfully!")

@@ -51,7 +51,7 @@ VOWELS = {
     'ɚ', 'ɛ', 'ɛː', 'ɜ', 'ɜː', 'ɝ', 'ɪ', 'ʉ', 'ʉː', 'ʊ'
 }
 
-DEFAULT_PROTECTED_WORDS = {"unexpectedly", "antidisestablishmentarianism", "experiment"}
+DEFAULT_PROTECTED_WORDS = {"unexpectedly", "antidisestablishmentarianism", "experiment", "andaroo"}
 
 def load_mfa_lexicon():
     candidates = [
@@ -100,7 +100,8 @@ LEXICON_OVERRIDES = {
     "kaggle": ["k", "a", "ɡ", "ə", "l"],
     "pytorch": ["p", "aj", "ʈ", "ɒː", "tʃ"],
     "github": ["ɡ", "ɪ", "ʈ", "h", "ə", "b"],
-    "andaroo": ["a", "n", "d̪", "ə", "ɾ", "uː"],
+    "so": ["s", "oː"],
+    "andaroo": ["a", "n", "d̪", "a", "ɾ", "uː"],
 }
 
 _ONES_EN = {
@@ -376,6 +377,20 @@ def resolve_word(word_token, lexicon):
     # 6. Fallback Rule-based G2P (pronounce phonetically, NEVER spell letter by letter!)
     return graphemes_to_mfa_phones(w_lower)
 
+ROBOTIC_PHONE_MAP = {
+    "ɲ": "n",
+    "ʎ": "l",
+    "ʈʲ": "ʈ",
+    "ʈʷ": "ʈ",
+    "ɖʷ": "ɖ",
+    "mʲ": "m",
+    "ʉː": "uː",
+    "ʉ": "u",
+}
+
+def sanitize_phones(phone_list):
+    return [ROBOTIC_PHONE_MAP.get(p, p) for p in phone_list]
+
 def text_to_phonemes(text, lexicon, protected_words=None, enable_selective_pause=False):
     if protected_words is None:
         protected_words = DEFAULT_PROTECTED_WORDS
@@ -388,10 +403,10 @@ def text_to_phonemes(text, lexicon, protected_words=None, enable_selective_pause
             phone_list.append("@sp")
         else:
             w_lower = tok.lower()
-            if enable_selective_pause and w_lower in protected_words:
+            if (enable_selective_pause and w_lower in protected_words) or w_lower == "andaroo":
                 if phone_list and phone_list[-1] != "@sp":
                     phone_list.append("@sp")
-            phone_list.extend(resolve_word(tok, lexicon))
+            phone_list.extend(sanitize_phones(resolve_word(tok, lexicon)))
                         
     return "{" + " ".join(phone_list) + "}"
 
@@ -401,7 +416,7 @@ def main():
     parser.add_argument("--phonemes", type=str, default=None, help="Explicit phoneme string (overrides text)")
     parser.add_argument("--output", type=str, default="output_savio.wav", help="Output WAV path")
     parser.add_argument("--speaker_id", type=int, default=27, help="Speaker ID (default 27 = spk_029)")
-    parser.add_argument("--d_control", type=float, default=1.25, help="Duration control speed factor")
+    parser.add_argument("--d_control", type=float, default=1.0, help="Duration control speed factor (default: 1.0 for natural pacing)")
     parser.add_argument(
         "--mode",
         type=str,
