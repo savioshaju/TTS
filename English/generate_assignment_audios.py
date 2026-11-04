@@ -161,12 +161,12 @@ test_sentences = {
     },
     "E2_a": {
         "text": "The orchestra's conduct during the ceremony was praised by the audience.",
-        # Noun heteronym: /k ɒ n ɖ ə k ʈ/ — trochaic stress (CONduct)
+        # Noun heteronym: /k ɒ n ɖ ə k ʈ/ — trochaic stress (CONduct) with natural inter-word boundary before 'during'
         "phonemes": (
-            "{d̪ ə ɒː k ə s ʈ ɹ ə s k ɒ n ɖ ə k ʈ ɖ ʊ ɹ ɪ ŋ d̪ ə "
+            "{d̪ ə ɒː k ə s ʈ ɹ ə s k ɒ n ɖ ə k ʈ @sp ɖ ʊ ɹ ɪ ŋ d̪ ə "
             "s ɛ ɹ ɪ m ə ɲ i ʋ ə z p ɹ eː z ɖ b aj d̪ ə ɒː ɖ i ə n s}"
         ),
-        "description": "Heteronym 'conduct' as NOUN: trochaic stress (/k ɒ n ɖ ə k ʈ/).",
+        "description": "Heteronym 'conduct' as NOUN: trochaic stress (/k ɒ n ɖ ə k ʈ/) with inter-word pause before 'during'.",
     },
     "E2_b": {
         "text": "The researchers will conduct an experiment to evaluate the proposed method.",
