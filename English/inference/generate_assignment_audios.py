@@ -71,9 +71,8 @@ PLOT_DIR         = os.path.join(RESULTS_DIR, "variance_adaptor_plots")
 PLOT_DUR_DIR     = os.path.join(PLOT_DIR, "duration")
 PLOT_PITCH_DIR   = os.path.join(PLOT_DIR, "pitch")
 PLOT_ENERGY_DIR  = os.path.join(PLOT_DIR, "energy")
-PLOT_COMB_DIR    = os.path.join(PLOT_DIR, "combined")
 
-for d in [AUDIO_DIR, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR, PLOT_COMB_DIR]:
+for d in [AUDIO_DIR, PLOT_DUR_DIR, PLOT_PITCH_DIR, PLOT_ENERGY_DIR]:
     os.makedirs(d, exist_ok=True)
 
 # ── Load FastSpeech 2 model ─────────────────────────────────────────────────
@@ -163,15 +162,6 @@ test_sentences = {
             "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈʲ ɪ ɖ ʎ i}"
         ),
         "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/. No artificial pause.",
-    },
-    "E3_split": {
-        "text": "The rhyth  m of the orchestra changed unexpectedly.  [diagnostic: split input]",
-        # Diagnostic: each half treated as a separate token with inter-token pause
-        "phonemes": (
-            "{d̪ ə ɹ ɪ d̪ @sp m̩ ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
-            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈʲ ɪ ɖ ʎ i}"
-        ),
-        "description": "Diagnostic: 'rhyth' and 'm' separated by pause token.",
     },
     "E4": {
         "text": (
@@ -280,27 +270,10 @@ for sent_id, info in test_sentences.items():
     plt.tight_layout()
     plt.savefig(os.path.join(PLOT_ENERGY_DIR, f"{sent_id}_energy.png"), dpi=180); plt.close()
 
-    # 4. Combined 3-panel
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(max(14, len(tokens) * 0.32), 10), sharex=True)
-    ax1.bar(x_pos, dur_ms, color="#1f77b4", alpha=0.85); ax1.set_ylabel("Duration (ms)"); ax1.grid(axis="y", ls="--", alpha=0.4)
-    ax1.set_title(f"Variance Adaptor Profiles — {sent_id}  ({info['text'][:60]}...)", fontsize=11, fontweight="bold")
-    ax2.plot(x_pos, pitch_hz, marker="o", color="#d62728", lw=1.8, ms=3); ax2.axhline(pitch_mean, color="gray", ls="--", alpha=0.7)
-    ax2.set_ylabel("F0 Hz"); ax2.grid(ls="--", alpha=0.4)
-    ax3.plot(x_pos, energy_db, marker="s", color="#2ca02c", lw=1.8, ms=3); ax3.axhline(energy_mean, color="gray", ls="--", alpha=0.7)
-    ax3.set_ylabel("Energy dB"); ax3.set_xlabel("Phoneme Token"); ax3.grid(ls="--", alpha=0.4)
-    ax3.set_xticks(x_pos); ax3.set_xticklabels(tokens, rotation=55, ha="right", fontsize=8)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOT_COMB_DIR, f"{sent_id}_combined.png"), dpi=180); plt.close()
-
     print(f"  Silence {synthesis_results[sent_id]['silence_pct']}% | "
           f"Pitch μ={pitch_hz.mean():.0f} Hz | Energy μ={energy_db.mean():.1f} dB")
-
-# ── Save numerical summary ──────────────────────────────────────────────────
-summary_path = os.path.join(RESULTS_DIR, "synthesis_analysis_summary.json")
-with open(summary_path, "w", encoding="utf-8") as f:
-    json.dump(synthesis_results, f, indent=2, ensure_ascii=False)
 
 print(f"\n{'='*56}")
 print(f"Audio files  → {AUDIO_DIR}")
 print(f"Plots        → {PLOT_DIR}")
-print(f"JSON summary → {summary_path}")
+print("English Assignment Synthesis completed successfully!")
