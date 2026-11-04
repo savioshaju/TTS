@@ -407,6 +407,8 @@ def text_to_phonemes(text, lexicon, protected_words=None, enable_selective_pause
                 if phone_list and phone_list[-1] != "@sp":
                     phone_list.append("@sp")
             phone_list.extend(sanitize_phones(resolve_word(tok, lexicon)))
+            if w_lower == "andaroo":
+                phone_list.append("@sp")
                         
     return "{" + " ".join(phone_list) + "}"
 

@@ -194,7 +194,7 @@ test_sentences = {
         "phonemes": (
             "{d̪ ə m iː ʈ ɪ ŋ ʋ ɪ l s ʈ ɑː ʈ a ʈ ɛ n f ɒː ʈ i f aj ʋ "
             "eː ɛ m ɒ n t̪ ʋ ɛ l ʋ n ə ʋ ɛ m b ə ɹ t̪ ʋ ɛ n ʈ i t̪ ʋ ɛ n ʈ i s ɪ k s @sp "
-            "s oː @sp a n d̪ a ɾ uː ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
+            "s oː @sp a n d̪ a ɾ uː @sp ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
         ),
         "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed with clear pause and authentic phonetics.",
     },
@@ -336,6 +336,6 @@ for sent_id, info in test_sentences.items():
           f"Pitch μ={pitch_hz.mean():.0f} Hz | Energy μ={energy_db.mean():.1f} dB")
 
 print(f"\n{'='*56}")
-print(f"Audio files  → {AUDIO_DIR_1} and {AUDIO_DIR_2}")
+print(f"Audio files  → {AUDIO_DIR}")
 print(f"Plots        → {PLOT_DIR}")
 print("English Assignment Synthesis completed successfully!")
