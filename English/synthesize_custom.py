@@ -10,6 +10,12 @@ import soundfile as sf
 from scipy.signal import resample_poly
 from math import gcd
 
+try:
+    import inflect
+    _inflect_engine = inflect.engine()
+except ImportError:
+    _inflect_engine = None
+
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -94,7 +100,116 @@ LEXICON_OVERRIDES = {
     "kaggle": ["k", "a", "ɡ", "ə", "l"],
     "pytorch": ["p", "aj", "ʈ", "ɒː", "tʃ"],
     "github": ["ɡ", "ɪ", "ʈ", "h", "ə", "b"],
+    "andaroo": ["a", "n", "d̪", "ə", "ɾ", "uː"],
 }
+
+_ONES_EN = {
+    0: "zero", 1: "one", 2: "two", 3: "three", 4: "four",
+    5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine",
+    10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen",
+    15: "fifteen", 16: "sixteen", 17: "seventeen", 18: "eighteen", 19: "nineteen"
+}
+_TENS_EN = {
+    20: "twenty", 30: "thirty", 40: "forty", 50: "fifty",
+    60: "sixty", 70: "seventy", 80: "eighty", 90: "ninety"
+}
+
+def _fallback_int_to_words(n: int) -> str:
+    if n < 0:
+        return "minus " + _fallback_int_to_words(-n)
+    if n < 20:
+        return _ONES_EN.get(n, str(n))
+    if n < 100:
+        ten = (n // 10) * 10
+        rem = n % 10
+        return _TENS_EN.get(ten, str(ten)) + (" " + _ONES_EN.get(rem, str(rem)) if rem else "")
+    if n < 1000:
+        h = n // 100
+        rem = n % 100
+        return _ONES_EN.get(h, str(h)) + " hundred" + (" and " + _fallback_int_to_words(rem) if rem else "")
+    if n < 1000000:
+        th = n // 1000
+        rem = n % 1000
+        return _fallback_int_to_words(th) + " thousand" + (" " + _fallback_int_to_words(rem) if rem else "")
+    if n < 1000000000:
+        m = n // 1000000
+        rem = n % 1000000
+        return _fallback_int_to_words(m) + " million" + (" " + _fallback_int_to_words(rem) if rem else "")
+    return str(n)
+
+def _int_to_words(n: int) -> str:
+    if _inflect_engine:
+        return _inflect_engine.number_to_words(n)
+    return _fallback_int_to_words(n)
+
+def expand_numbers_en(text):
+    """
+    Expands currency, percentages, times (10:45), ordinals (1st, 12th),
+    four-digit years (2026 -> twenty twenty-six), decimals, and integers into words.
+    """
+    text = text.replace("—", " ").replace("–", " ")
+    
+    # 1. Currency
+    text = re.sub(r'₹\s*([0-9]+(?:\.[0-9]+)?)', lambda m: _int_to_words(int(float(m.group(1)))) + ' rupees', text)
+    text = re.sub(r'\$\s*([0-9]+(?:\.[0-9]+)?)', lambda m: _int_to_words(int(float(m.group(1)))) + ' dollars', text)
+    text = re.sub(r'£\s*([0-9]+(?:\.[0-9]+)?)', lambda m: _int_to_words(int(float(m.group(1)))) + ' pounds', text)
+    
+    # 2. Percentage
+    text = re.sub(r'([0-9]+(?:\.[0-9]+)?)\s*%', lambda m: _int_to_words(int(float(m.group(1)))) + ' percent', text)
+
+    # 3. Time (e.g. 10:45 AM, 09:30, 10:05)
+    def _expand_time(m):
+        h = int(m.group(1))
+        mins = int(m.group(2))
+        h_words = _int_to_words(h)
+        if mins == 0:
+            m_words = "o'clock"
+        elif mins < 10:
+            m_words = f"oh {_int_to_words(mins)}"
+        else:
+            m_words = _int_to_words(mins)
+        return f"{h_words} {m_words}"
+        
+    text = re.sub(r'\b([0-2]?[0-9]):([0-5][0-9])\b', _expand_time, text)
+
+    # 4. Ordinals (e.g. 1st, 2nd, 3rd, 12th)
+    def _expand_ordinal(m):
+        n = int(m.group(1))
+        if _inflect_engine:
+            return _inflect_engine.number_to_words(_inflect_engine.ordinal(n))
+        return _int_to_words(n) + "th"
+    text = re.sub(r'\b([0-9]+)(st|nd|rd|th)\b', _expand_ordinal, text)
+
+    # 5. Four-digit years (1800-2099)
+    def _expand_year(m):
+        y = int(m.group(0))
+        if 1800 <= y <= 2099:
+            if y % 100 == 0:
+                return f"{_int_to_words(y // 100)} hundred"
+            elif 2000 <= y < 2010:
+                return f"two thousand {_int_to_words(y % 100)}"
+            else:
+                c1 = y // 100
+                c2 = y % 100
+                return f"{_int_to_words(c1)} {_int_to_words(c2)}"
+        return _int_to_words(y)
+
+    text = re.sub(r'\b(1[89][0-9]{2}|20[0-9]{2})\b', _expand_year, text)
+
+    # 6. Decimals
+    def _expand_decimal(m):
+        integer_part, frac_part = m.group(1), m.group(2)
+        int_words = _int_to_words(int(integer_part))
+        frac_words = ' '.join(_int_to_words(int(d)) for d in frac_part)
+        return f"{int_words} point {frac_words}"
+    text = re.sub(r'\b([0-9]+)\.([0-9]+)\b', _expand_decimal, text)
+
+    # 7. Remaining integers
+    text = re.sub(r'\b[0-9]+\b', lambda m: _int_to_words(int(m.group(0))), text)
+
+    # Replace hyphens in numbers (e.g. forty-five -> forty five)
+    text = text.replace("-", " ")
+    return text
 
 def is_acronym(tok):
     """
@@ -103,7 +218,7 @@ def is_acronym(tok):
     if re.match(r"^([a-zA-Z]\.)+$", tok):
         return True
     if tok.isupper() and len(tok) >= 2 and len(tok) <= 5:
-        if not any(v in tok for v in "AEIOU") or tok in ["USA", "UK", "IIT", "AI", "ASR", "API", "CPU", "GPU", "RAM", "ROM", "ID", "TTS"]:
+        if not any(v in tok for v in "AEIOU") or tok in ["USA", "UK", "IIT", "AI", "ASR", "API", "CPU", "GPU", "RAM", "ROM", "ID", "TTS", "AM", "PM"]:
             return True
     return False
 
@@ -264,7 +379,7 @@ def resolve_word(word_token, lexicon):
 def text_to_phonemes(text, lexicon, protected_words=None, enable_selective_pause=False):
     if protected_words is None:
         protected_words = DEFAULT_PROTECTED_WORDS
-    text_clean = text.strip()
+    text_clean = expand_numbers_en(text.strip())
     tokens = re.findall(r"[\w']+|[.,!?;]", text_clean)
     
     phone_list = []

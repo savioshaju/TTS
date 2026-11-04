@@ -835,7 +835,7 @@ python English/preprocess/create_svarah_splits.py
     \begin{itemize}
         \item Parses Parquet shards in \path{datasets/IndicTTS_Telugu/data/} (8{,}576 total utterances, ~8.74 hours from 1 female and 1 male studio speaker).
         \item Filters durations between $1.0\text{ s} \le d \le 14.5\text{ s}$ and requires transcript length $\ge 2$.
-        \item Subsamples 5.00~hours total using proportional speaker weights (58\% female, 42\% male) matching the natural studio distribution.
+        \item Subsamples 5.00~hours total using an exact 50/50 gender balance (2.50~hours female, 2.50~hours male across both studio speakers).
         \item Splits into \textbf{2{,}248 aligned training utterances (5.00~hours)} and \textbf{445 validation utterances (1.00~hour)} with strictly zero utterance overlap and zero transcript overlap (verified via SHA-256 text hashing).
         \item Extracts raw WAV files and metadata to:
         \begin{quote}

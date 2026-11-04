@@ -69,7 +69,150 @@ TELUGU_VOWEL_TOKENS = {
     '@a', '@aa', '@i', '@ii', '@u', '@uu', '@ru', '@e', '@ee', '@ai', '@o', '@oo', '@au'
 }
 
+TELUGU_NUMERALS_MAP = str.maketrans('౦౧౨౩౪౫౬౭౮౯', '0123456789')
+
+ONES_TE = {
+    0: "సున్నా", 1: "ఒకటి", 2: "రెండు", 3: "మూడు", 4: "నాలుగు",
+    5: "ఐదు", 6: "ఆరు", 7: "ఏడు", 8: "ఎనిమిది", 9: "తొమ్మిది"
+}
+
+TEENS_TE = {
+    10: "పది", 11: "పదకొండు", 12: "పన్నెండు", 13: "పదమూడు", 14: "పద్నాలుగు",
+    15: "పదిహేను", 16: "పదహారు", 17: "పదిహేడు", 18: "పద్దెనిమిది", 19: "పందొమ్మిది"
+}
+
+TENS_TE = {
+    20: "ఇరవై", 30: "ముప్పై", 40: "నలభై", 50: "యాభై",
+    60: "అరవై", 70: "డెబ్బై", 80: "ఎనభై", 90: "తొంభై"
+}
+
+def number_to_telugu_words(n: int) -> str:
+    """
+    Recursively converts an integer n (0 to 999,999,999) into spoken Telugu words.
+    """
+    if n < 0:
+        return "మైనస్ " + number_to_telugu_words(-n)
+    if n < 10:
+        return ONES_TE[n]
+    if n < 20:
+        return TEENS_TE[n]
+    if n < 100:
+        ten = (n // 10) * 10
+        rem = n % 10
+        if rem == 0:
+            return TENS_TE[ten]
+        else:
+            return f"{TENS_TE[ten]} {ONES_TE[rem]}"
+    if n < 1000:
+        hundreds = n // 100
+        rem = n % 100
+        h_word = "వంద" if hundreds == 1 else f"{ONES_TE[hundreds]} వందలు"
+        if rem == 0:
+            return h_word
+        else:
+            prefix = "వంద" if hundreds == 1 else f"{ONES_TE[hundreds]} వందల"
+            return f"{prefix} {number_to_telugu_words(rem)}"
+    if n < 100000:
+        thousands = n // 1000
+        rem = n % 1000
+        th_word = "వెయ్యి" if thousands == 1 else f"{number_to_telugu_words(thousands)} వేలు"
+        if rem == 0:
+            return th_word
+        else:
+            prefix = "వెయ్యి" if thousands == 1 else f"{number_to_telugu_words(thousands)} వేల"
+            return f"{prefix} {number_to_telugu_words(rem)}"
+    if n < 10000000:
+        lakhs = n // 100000
+        rem = n % 100000
+        l_word = "లక్ష" if lakhs == 1 else f"{number_to_telugu_words(lakhs)} లక్షలు"
+        if rem == 0:
+            return l_word
+        else:
+            prefix = "లక్ష" if lakhs == 1 else f"{number_to_telugu_words(lakhs)} లక్షల"
+            return f"{prefix} {number_to_telugu_words(rem)}"
+    if n < 1000000000:
+        crores = n // 10000000
+        rem = n % 10000000
+        c_word = "కోటి" if crores == 1 else f"{number_to_telugu_words(crores)} కోట్లు"
+        if rem == 0:
+            return c_word
+        else:
+            prefix = "కోటి" if crores == 1 else f"{number_to_telugu_words(crores)} కోట్ల"
+            return f"{prefix} {number_to_telugu_words(rem)}"
+    return str(n)
+
+ORDINALS_SPECIAL_TE = {
+    1: "ఒకటవ",
+    2: "రెండవ",
+    3: "మూడవ",
+    4: "నాలుగవ",
+    5: "ఐదవ",
+    6: "ఆరవ",
+    7: "ఏడవ",
+    8: "ఎనిమిదవ",
+    9: "తొమ్మిదవ",
+    10: "పదవ",
+    11: "పదకొండవ",
+    12: "పన్నెండవ",
+}
+
+def ordinal_to_telugu(n: int) -> str:
+    if n in ORDINALS_SPECIAL_TE:
+        return ORDINALS_SPECIAL_TE[n]
+    words = number_to_telugu_words(n)
+    if words.endswith("ి") or words.endswith("ు") or words.endswith("ల"):
+        return words + "వ"
+    elif words.endswith("డు"):
+        return words[:-2] + "డవ"
+    return words + "వ"
+
+def expand_numbers_te(text: str) -> str:
+    """
+    Normalizes numbers in Telugu text:
+    - Converts Telugu Unicode digits (౦-౯) to ASCII digits.
+    - Removes thousands commas (e.g. 10,000 -> 10000).
+    - Expands time formats (e.g. 10:45 -> పది నలభై ఐదు).
+    - Expands ordinals (e.g. 12వ -> పన్నెండవ).
+    - Expands decimals (e.g. 3.14 -> మూడు పాయింట్ ఒకటి నాలుగు).
+    - Expands standalone integers (e.g. 2026 -> రెండు వేల ఇరవై ఆరు).
+    """
+    text = text.translate(TELUGU_NUMERALS_MAP)
+    text = re.sub(r'(\d),(\d)', r'\1\2', text)
+
+    # 1. Time formats e.g. 10:45, 09:30
+    def _expand_time(m):
+        h = int(m.group(1))
+        mins = int(m.group(2))
+        h_words = number_to_telugu_words(h)
+        if mins == 0:
+            return f" {h_words} "
+        m_words = number_to_telugu_words(mins)
+        return f" {h_words} {m_words} "
+    text = re.sub(r'\b([0-2]?[0-9]):([0-5][0-9])\b', _expand_time, text)
+
+    # 2. Ordinals e.g. 12వ, 12 వ
+    def _expand_ordinal(m):
+        n = int(m.group(1))
+        return f" {ordinal_to_telugu(n)} "
+    text = re.sub(r'\b([0-9]+)\s*వ\b', _expand_ordinal, text)
+
+    # 3. Decimals e.g. 3.14 -> మూడు పాయింట్ ఒకటి నాలుగు
+    def _expand_decimal(m):
+        integer_part, frac_part = m.group(1), m.group(2)
+        int_words = number_to_telugu_words(int(integer_part))
+        frac_words = " ".join(ONES_TE.get(int(d), d) for d in frac_part)
+        return f" {int_words} పాయింట్ {frac_words} "
+    text = re.sub(r'(\d+)\.(\d+)', _expand_decimal, text)
+
+    # 4. Standalone integers
+    def _expand_int(m):
+        return f" {number_to_telugu_words(int(m.group(0)))} "
+    text = re.sub(r'\b[0-9]+\b', _expand_int, text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
 def telugu_to_tokens(text):
+    text = expand_numbers_te(text)
     text = unicodedata.normalize('NFC', text)
     words = re.split(r'(\s+|[.,!?;])', text)
     all_tokens = []
