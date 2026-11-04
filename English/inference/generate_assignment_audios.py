@@ -190,11 +190,11 @@ test_sentences = {
             "The meeting will start at 10:45 AM on 12 November 2026, "
             "so andaroo should arrive on time."
         ),
-        # Authentic loanword phonetics: pause before 'andaroo' and dental/tap /a n d̪ a ɾ uː/
+        # Authentic loanword phonetics: pause before 'andaroo' and dental/tap /a n d̪ a ɾ ʉː/
         "phonemes": (
             "{d̪ ə m iː ʈ ɪ ŋ ʋ ɪ l s ʈ ɑː ʈ a ʈ ɛ n f ɒː ʈ i f aj ʋ "
             "eː ɛ m ɒ n t̪ ʋ ɛ l ʋ n ə ʋ ɛ m b ə ɹ t̪ ʋ ɛ n ʈ i t̪ ʋ ɛ n ʈ i s ɪ k s @sp "
-            "s oː @sp a n d̪ a ɾ uː @sp ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
+            "s oː @sp a n d̪ a ɾ ʉː @sp ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
         ),
         "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed with clear pause and authentic phonetics.",
     },
@@ -246,7 +246,9 @@ for sent_id, info in test_sentences.items():
             # Phase 4 calibrated duration regulation + selective vowel nucleus protection
             d_scaled = torch.round(d_raw * cli_args.d_control)
             for idx, tok in enumerate(tokens):
-                if tok in VOWELS and d_scaled[idx] < 2.0:
+                if tok in VOWELS and d_scaled[idx] < 3.0:
+                    d_scaled[idx] = 3.0
+                if tok == 'ɾ' and d_scaled[idx] < 2.0:
                     d_scaled[idx] = 2.0
 
         d_scaled_batch = d_scaled.unsqueeze(0)

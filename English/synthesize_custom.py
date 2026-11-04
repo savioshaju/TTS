@@ -101,7 +101,7 @@ LEXICON_OVERRIDES = {
     "pytorch": ["p", "aj", "ʈ", "ɒː", "tʃ"],
     "github": ["ɡ", "ɪ", "ʈ", "h", "ə", "b"],
     "so": ["s", "oː"],
-    "andaroo": ["a", "n", "d̪", "a", "ɾ", "uː"],
+    "andaroo": ["a", "n", "d̪", "a", "ɾ", "ʉː"],
 }
 
 _ONES_EN = {
