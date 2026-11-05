@@ -185,6 +185,15 @@ test_sentences = {
         ),
         "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/. Smooth unified audio.",
     },
+    "E3_split": {
+        "text": "The rhyth  m of the orchestra changed unexpectedly.  [whitespace before 'm']",
+        # Whitespace before 'm' preserved as split token with @sp pause
+        "phonemes": (
+            "{d̪ ə ɹ ɪ d̪ @sp m ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
+            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
+        ),
+        "description": "Whitespace before 'm' preserved: 'rhyth' and 'm' separated by pause token @sp.",
+    },
     "E4": {
         "text": (
             "The meeting will start at 10:45 AM on 12 November 2026, "
