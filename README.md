@@ -1,12 +1,7 @@
 # Implementation of FastSpeech 2-Based Text-to-Speech Synthesis
 ## English (AI4Bharat Svarah) & Telugu (IndicTTS)
 
-[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![PyTorch 2.5](https://img.shields.io/badge/PyTorch-2.5-orange.svg)](https://pytorch.org/)
-[![Vocoder HiFi--GAN](https://img.shields.io/badge/Vocoder-HiFi--GAN_16kHz-green.svg)](https://github.com/jik876/hifi-gan)
-[![Report](https://img.shields.io/badge/Technical_Report-PDF-red.svg)](Report/Technical_Report.pdf)
-
-A complete, production-grade implementation of the **FastSpeech 2** non-autoregressive text-to-speech architecture developed separately for **Indian English** and **Telugu**, fulfilling all requirements specified in the [Assignment Specification](Ref/Assignment.pdf).
+A complete, production-grade implementation of the **FastSpeech 2** non-autoregressive text-to-speech architecture developed separately for **Indian English** and **Telugu**, fulfilling all requirements specified in the assignment specification.
 
 ---
 
