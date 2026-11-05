@@ -71,7 +71,8 @@ Telugu/test_checkpoints/
 Telugu/training_config/
 English/logs/
 
-# --- LaTeX Intermediate Build Artifacts (Preserves Report/Technical_Report.pdf) ---
+# --- LaTeX Intermediate Build Artifacts & Source (Preserves Report/Technical_Report.pdf) ---
+report_source/
 Report/*.aux
 Report/*.log
 Report/*.out
