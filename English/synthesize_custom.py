@@ -446,7 +446,7 @@ def main():
     parser.add_argument("--text", type=str, default="Hi, I am Savio.", help="Text to synthesize")
     parser.add_argument("--phonemes", type=str, default=None, help="Explicit phoneme string (overrides text)")
     parser.add_argument("--output", type=str, default="custom_synthesize/output_savio.wav", help="Output WAV path (default: custom_synthesize/output_savio.wav)")
-    parser.add_argument("--speaker_id", type=int, default=65, help="Speaker ID (default 65 = spk_067)")
+    parser.add_argument("--speaker_id", type=int, default=27, help="Speaker ID (default 27 = spk_029)")
     parser.add_argument("--d_control", type=float, default=1.25, help="Duration control speed factor (default: 1.25 for calibrated clarity)")
     parser.add_argument(
         "--mode",

@@ -107,10 +107,9 @@ print(f"Vocoder loaded (native SR: {getattr(vocoder, '_native_sr', 22050)} Hz, "
 with open(os.path.join(cfg["path"]["preprocessed_path"], "speakers.json")) as f:
     speaker_map = json.load(f)
 
-# spk_067 (Speaker ID 65) selected as default speaker
-target_spk    = "spk_067"
-target_spk_id = speaker_map[target_spk]   # integer 65
-print(f"Target speaker: {target_spk}  (ID: {target_spk_id})")
+# spk_029 has the most training utterances (118) and is the original default female speaker
+target_spk    = "spk_029"
+target_spk_id = speaker_map.get(target_spk, 27)   # integer 27
 
 cleaners      = preprocess_config["preprocessing"]["text"]["text_cleaners"]
 sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
@@ -156,14 +155,6 @@ test_sentences = {
         ),
         "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/.",
     },
-    "E3_split": {
-        "text": "The rhyth  m of the orchestra changed unexpectedly.  [whitespace before 'm']",
-        "phonemes": (
-            "{d̪ ə ɹ ɪ d̪ @sp m ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
-            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
-        ),
-        "description": "Preserved whitespace before 'm' with pause token @sp.",
-    },
     "E4": {
         "text": (
             "The meeting will start at 10:45 AM on 12 November 2026, "
@@ -179,6 +170,7 @@ test_sentences = {
 }
 
 parser = argparse.ArgumentParser(description="English FastSpeech 2 — Assignment Test Sentence Synthesis")
+parser.add_argument("--speaker_id", type=int, default=27, help="Target speaker ID (default: 27 = spk_029)")
 parser.add_argument("--d_control", type=float, default=1.25, help="Duration control factor (default: 1.25 for calibrated clarity)")
 parser.add_argument(
     "--mode",
@@ -188,6 +180,10 @@ parser.add_argument(
     help="Duration regulation mode: 'baseline' (pure standard FastSpeech 2)",
 )
 cli_args, _ = parser.parse_known_args()
+target_spk_id = cli_args.speaker_id
+inv_speaker_map = {v: k for k, v in speaker_map.items()}
+target_spk = inv_speaker_map.get(target_spk_id, f"spk_{target_spk_id:03d}")
+print(f"Target speaker: {target_spk}  (ID: {target_spk_id})")
 print(f"Mode: {cli_args.mode} | Duration Control: {cli_args.d_control}")
 
 synthesis_results = {}
