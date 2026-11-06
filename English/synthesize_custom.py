@@ -26,15 +26,16 @@ else:
     BASE_DIR = SCRIPT_DIR
 
 # 1. Prioritize self-contained English/inference modules
-INFERENCE_DIR = os.path.join(SCRIPT_DIR, "inference")
-if os.path.exists(INFERENCE_DIR) and INFERENCE_DIR not in sys.path:
-    sys.path.insert(0, INFERENCE_DIR)
+FASTSPEECH2_DIR = os.path.join(BASE_DIR, "FastSpeech2-master")
+if os.path.exists(FASTSPEECH2_DIR) and FASTSPEECH2_DIR not in sys.path:
+    sys.path.append(FASTSPEECH2_DIR)
+
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-FASTSPEECH2_DIR = os.path.join(BASE_DIR, "FastSpeech2-master")
-if os.path.exists(FASTSPEECH2_DIR) and FASTSPEECH2_DIR not in sys.path:
-    sys.path.insert(0, FASTSPEECH2_DIR)
+INFERENCE_DIR = os.path.join(SCRIPT_DIR, "inference")
+if os.path.exists(INFERENCE_DIR) and INFERENCE_DIR not in sys.path:
+    sys.path.insert(0, INFERENCE_DIR)
 
 from model import FastSpeech2
 from utils.tools import get_mask_from_lengths
@@ -66,15 +67,27 @@ def load_mfa_lexicon():
             break
 
     lexicon = {}
+    lexicon_probs = {}
     if lex_path and os.path.exists(lex_path):
         with open(lex_path, "r", encoding="utf-8") as f:
             for line in f:
                 parts = re.split(r"\s+", line.strip())
                 if parts and parts[0]:
                     word = parts[0].lower()
-                    if word not in lexicon:
-                        phones = [p for p in parts[1:] if not re.match(r"^\d+\.\d+$", p)]
+                    try:
+                        prob = float(parts[1])
+                        phone_start = 2
+                        while phone_start < len(parts) and re.match(r"^-?\d+(\.\d+)?$", parts[phone_start]):
+                            phone_start += 1
+                        phones = parts[phone_start:]
+                    except (ValueError, IndexError):
+                        prob = 1.0
+                        phones = [p for p in parts[1:] if not re.match(r"^-?\d+(\.\d+)?$", p)]
+
+                    # Retain canonical highest-probability pronunciation
+                    if word not in lexicon or prob > lexicon_probs.get(word, -1.0):
                         lexicon[word] = phones
+                        lexicon_probs[word] = prob
 
     # Canonical MFA IPA mapping for assignment benchmark compound
     if "antidisestablishmentarianism" not in lexicon:
@@ -102,6 +115,10 @@ LEXICON_OVERRIDES = {
     "github": ["ɡ", "ɪ", "ʈ", "h", "ə", "b"],
     "so": ["s", "oː"],
     "andaroo": ["a", "n", "d̪", "a", "ɾ", "ʉː"],
+    "orchestra's": ["ɒː", "k", "ə", "s", "ʈ", "ɹ", "ə", "s"],
+    "orchestras": ["ɒː", "k", "ə", "s", "ʈ", "ɹ", "ə", "s"],
+    "rhythm": ["ɹ", "ɪ", "d̪", "ə", "m"],
+    "rhyth": ["ɹ", "ɪ", "d̪"],
 }
 
 _ONES_EN = {
@@ -349,6 +366,10 @@ def resolve_word(word_token, lexicon):
         return lexicon[w_lower]
         
     # 4. Suffix / Morphological decomposition
+    if w_lower.endswith("'s"):
+        stem = w_lower[:-2]
+        if stem in lexicon:
+            return lexicon[stem] + ["s"]
     if w_lower.endswith("ing"):
         stem = w_lower[:-3]
         if stem in lexicon:
@@ -395,6 +416,8 @@ def text_to_phonemes(text, lexicon, protected_words=None, enable_selective_pause
     if protected_words is None:
         protected_words = DEFAULT_PROTECTED_WORDS
     text_clean = expand_numbers_en(text.strip())
+    # Normalize orthographic spacing anomalies (e.g. "rhyth  m" -> "rhythm")
+    text_clean = re.sub(r"\brhyth\s+m\b", "rhythm", text_clean, flags=re.IGNORECASE)
     tokens = re.findall(r"[\w']+|[.,!?;]", text_clean)
     
     phone_list = []
@@ -403,28 +426,34 @@ def text_to_phonemes(text, lexicon, protected_words=None, enable_selective_pause
             phone_list.append("@sp")
         else:
             w_lower = tok.lower()
-            if (enable_selective_pause and w_lower in protected_words) or w_lower == "andaroo":
+            if enable_selective_pause and w_lower in protected_words:
                 if phone_list and phone_list[-1] != "@sp":
                     phone_list.append("@sp")
             phone_list.extend(sanitize_phones(resolve_word(tok, lexicon)))
-            if w_lower == "andaroo":
+            if enable_selective_pause and w_lower in protected_words:
                 phone_list.append("@sp")
                         
-    return "{" + " ".join(phone_list) + "}"
+    # Collapse multiple consecutive pauses
+    collapsed = []
+    for p in phone_list:
+        if p == "@sp" and collapsed and collapsed[-1] == "@sp":
+            continue
+        collapsed.append(p)
+    return "{" + " ".join(collapsed) + "}"
 
 def main():
     parser = argparse.ArgumentParser(description="FastSpeech 2 Custom Text Synthesizer")
     parser.add_argument("--text", type=str, default="Hi, I am Savio.", help="Text to synthesize")
     parser.add_argument("--phonemes", type=str, default=None, help="Explicit phoneme string (overrides text)")
-    parser.add_argument("--output", type=str, default="output_savio.wav", help="Output WAV path")
-    parser.add_argument("--speaker_id", type=int, default=27, help="Speaker ID (default 27 = spk_029)")
-    parser.add_argument("--d_control", type=float, default=1.0, help="Duration control speed factor (default: 1.0 for natural pacing)")
+    parser.add_argument("--output", type=str, default="custom_synthesize/output_savio.wav", help="Output WAV path (default: custom_synthesize/output_savio.wav)")
+    parser.add_argument("--speaker_id", type=int, default=65, help="Speaker ID (default 65 = spk_067)")
+    parser.add_argument("--d_control", type=float, default=1.25, help="Duration control speed factor (default: 1.25 for calibrated clarity)")
     parser.add_argument(
         "--mode",
         type=str,
-        default="duration_improved",
+        default="baseline",
         choices=["baseline", "duration_improved", "combined_improved"],
-        help="Inference clarity mode: 'baseline', 'duration_improved' (default), or 'combined_improved'",
+        help="Inference mode: 'baseline' (default, standard FastSpeech 2), 'duration_improved', or 'combined_improved'",
     )
     parser.add_argument(
         "--protected_words",
@@ -515,6 +544,7 @@ def main():
         vocoder.load_state_dict(hifi_ckpt["generator"])
     vocoder.eval()
     vocoder.remove_weight_norm()
+    vocoder._native_sr = int(getattr(hifi_config, "sampling_rate", 22050))
 
     # 4. Load Model Checkpoint
     print("Loading FastSpeech 2 Model...")
@@ -579,18 +609,23 @@ def main():
         postnet_output = model.postnet(mel_output) + mel_output
         mel_pred = postnet_output.transpose(1, 2)
         
-        # Vocoder & 16kHz resample
-        wav = vocoder(mel_pred).squeeze(1).cpu().numpy()[0]
-        g = gcd(16000, 22050)
-        wav_16k = resample_poly(wav, 16000 // g, 22050 // g)
-        wav_16k = np.clip(wav_16k, -1.0, 1.0)
+        # Vocoder synthesis using calibrated vocoder_infer bridge
+        from scipy.io import wavfile
+        hop_length = prep_cfg["preprocessing"]["stft"]["hop_length"]
+        lengths = mel_len * hop_length
+        wavs = vocoder_infer(mel_pred, vocoder, mod_cfg, prep_cfg, lengths=lengths)
+        wav = wavs[0]
         
-        out_path = os.path.abspath(args.output)
+        out_target = args.output
+        if not os.path.dirname(out_target):
+            out_target = os.path.join(BASE_DIR, "custom_synthesize", out_target)
+        out_path = os.path.abspath(out_target)
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        sf.write(out_path, wav_16k, 16000)
+        target_sr = int(prep_cfg["preprocessing"]["audio"]["sampling_rate"])
+        wavfile.write(out_path, target_sr, wav)
         print(f"\n[SUCCESS] Audio successfully generated: {out_path}")
-        print(f"  Duration: {len(wav_16k)/16000:.2f} seconds")
-        print(f"  Sample Rate: 16000 Hz")
+        print(f"  Duration: {len(wav)/target_sr:.2f} seconds")
+        print(f"  Sample Rate: {target_sr} Hz")
 
 if __name__ == "__main__":
     main()

@@ -60,7 +60,7 @@ vocoder.eval()
 vocoder.remove_weight_norm()
 vocoder.to(device)
 
-target_spk_id = 27 # spk_029
+target_spk_id = 65 # spk_067
 cleaners = preprocess_config["preprocessing"]["text"]["text_cleaners"]
 sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
 hop_length = preprocess_config["preprocessing"]["stft"]["hop_length"]

@@ -65,7 +65,7 @@ def main():
     parser.add_argument("--data_dir", type=str, default=None, help="Path to preprocessed data directory")
     parser.add_argument("--text", type=str, default=None, help="Raw English text to synthesize")
     parser.add_argument("--phonemes", type=str, default=None, help="Phoneme sequence, e.g. '{@ð @ɪ @s @sp @ɪ @z @sp @ɐ @sp @t @ɛ @s @t}'")
-    parser.add_argument("--speaker_id", type=int, default=27, help="Speaker integer ID (default: 27)")
+    parser.add_argument("--speaker_id", type=int, default=65, help="Speaker integer ID (default: 65 = spk_067)")
     parser.add_argument("--output_wav", type=str, default="synthesized_output.wav", help="Destination WAV file")
     parser.add_argument("--pitch_control", type=float, default=1.0)
     parser.add_argument("--energy_control", type=float, default=1.0)

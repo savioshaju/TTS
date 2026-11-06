@@ -43,13 +43,6 @@ from utils.model import vocoder_infer, get_vocoder
 from utils.tools import get_mask_from_lengths
 from text import text_to_sequence
 
-# Vowel taxonomy for selective minimum duration floor
-VOWELS = {
-    'a', 'aj', 'aw', 'aː', 'e', 'ej', 'eː', 'i', 'iː', 'o', 'ow', 'oː', 
-    'u', 'uː', 'æ', 'ɐ', 'ɑ', 'ɑː', 'ɒ', 'ɒː', 'ɔ', 'ɔj', 'ə', 'əw', 
-    'ɚ', 'ɛ', 'ɛː', 'ɜ', 'ɜː', 'ɝ', 'ɪ', 'ʉ', 'ʉː', 'ʊ'
-}
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
@@ -114,41 +107,22 @@ print(f"Vocoder loaded (native SR: {getattr(vocoder, '_native_sr', 22050)} Hz, "
 with open(os.path.join(cfg["path"]["preprocessed_path"], "speakers.json")) as f:
     speaker_map = json.load(f)
 
-# spk_029 has the most training utterances (118) and is a clear female speaker
-target_spk    = "spk_029"
-target_spk_id = speaker_map[target_spk]   # integer 27
+# spk_067 (Speaker ID 65) selected as default speaker
+target_spk    = "spk_067"
+target_spk_id = speaker_map[target_spk]   # integer 65
 print(f"Target speaker: {target_spk}  (ID: {target_spk_id})")
 
 cleaners      = preprocess_config["preprocessing"]["text"]["text_cleaners"]
 sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
 hop_length    = preprocess_config["preprocessing"]["stft"]["hop_length"]
 
-# ────────────────────────────────────────────────────────────────────────────
-# Test sentences
-# ────────────────────────────────────────────────────────────────────────────
-#
-# Phoneme notation notes:
-#   • Symbols in curly braces {…} are whitespace-separated MFA IPA phones.
-#   • @sp  = short pause (inter-clause boundary, ~50–150 ms)
-#   • @spn = noise/speaker pause (longer; used for sentence-final pauses)
-#   • Pause tokens are placed ONLY at punctuation boundaries (commas, full
-#     stops), not between every word — matching the training distribution.
-#
-# E3: "rhyth  m" — the double-space is an intentional orthographic anomaly.
-#     We normalise to /ɹ ɪ d̪ ə m/ (identical to "rhythm").
-# E3_split: treats each half of "rhyth  m" as a separate token with sp.
-#
-# E4: Numbers expanded by text cleaners (10:45 → ten forty-five, etc.).
-#     "andaroo" (Telugu: "everyone") transcribed with retroflex /ɾ/ and
-#     long back vowel /uː/.
-#
+# ── Test Sentences ──────────────────────────────────────────────────────────
 test_sentences = {
     "E1": {
         "text": (
             "The antidisestablishmentarianism movement gained considerable "
             "momentum during the parliamentary proceedings."
         ),
-        # Clean, natural phonemes without rare/exotic phone distortions
         "phonemes": (
             "{d̪ ə a n ʈ i ɖ ɪ s ɪ s ʈ a b l ɪ ʃ m ɛ n ʈ ɛː ɹ i ə n ɪ z ə m "
             "m uː ʋ m ɛ n ʈ ɡ eː n ɖ k ə n s ɪ ɖ ə ɹ ə b ə l "
@@ -159,16 +133,14 @@ test_sentences = {
     },
     "E2_a": {
         "text": "The orchestra's conduct during the ceremony was praised by the audience.",
-        # Noun heteronym: /k ɒ n ɖ ə k ʈ/ — trochaic stress (CONduct) with audible word boundary before 'during'
         "phonemes": (
-            "{d̪ ə ɒː k ə s ʈ ɹ ə s k ɒ n ɖ ə k ʈ @sp ɖ ʊ ɹ ɪ ŋ d̪ ə "
+            "{d̪ ə ɒː k ə s ʈ ɹ ə s k ɒ n ɖ ə k ʈ ɖ ʊ ɹ ɪ ŋ d̪ ə "
             "s ɛ ɹ ɪ m ə n i ʋ ə z p ɹ eː z ɖ b aj d̪ ə ɒː ɖ i ə n s}"
         ),
-        "description": "Heteronym 'conduct' as NOUN: trochaic stress (/k ɒ n ɖ ə k ʈ/) with inter-word pause before 'during'.",
+        "description": "Heteronym 'conduct' as NOUN: trochaic stress (/k ɒ n ɖ ə k ʈ/).",
     },
     "E2_b": {
         "text": "The researchers will conduct an experiment to evaluate the proposed method.",
-        # Verb heteronym: /k ə n ɖ ə k ʈ/ — iambic stress (conDUCT)
         "phonemes": (
             "{d̪ ə ɹ iː s ɜː tʃ ə z ʋ ɪ l k ə n ɖ ə k ʈ ə n "
             "ɛ k s p ɛ ɾ ɪ m ɛ n ʈ ʈ uː ɪ ʋ a l j u eː ʈ d̪ ə "
@@ -178,34 +150,31 @@ test_sentences = {
     },
     "E3": {
         "text": "The rhyth  m of the orchestra changed unexpectedly.",
-        # "rhyth  m" normalised → /ɹ ɪ d̪ ə m/ (canonical clean rhythm)
         "phonemes": (
             "{d̪ ə ɹ ɪ d̪ ə m ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
             "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
         ),
-        "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/. Smooth unified audio.",
+        "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/.",
     },
     "E3_split": {
         "text": "The rhyth  m of the orchestra changed unexpectedly.  [whitespace before 'm']",
-        # Whitespace before 'm' preserved as split token with @sp pause
         "phonemes": (
             "{d̪ ə ɹ ɪ d̪ @sp m ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
             "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
         ),
-        "description": "Whitespace before 'm' preserved: 'rhyth' and 'm' separated by pause token @sp.",
+        "description": "Preserved whitespace before 'm' with pause token @sp.",
     },
     "E4": {
         "text": (
             "The meeting will start at 10:45 AM on 12 November 2026, "
             "so andaroo should arrive on time."
         ),
-        # Authentic loanword phonetics: pause before 'andaroo' and dental/tap /a n d̪ a ɾ ʉː/
         "phonemes": (
             "{d̪ ə m iː ʈ ɪ ŋ ʋ ɪ l s ʈ ɑː ʈ a ʈ ɛ n f ɒː ʈ i f aj ʋ "
-            "eː ɛ m ɒ n t̪ ʋ ɛ l ʋ n ə ʋ ɛ m b ə ɹ t̪ ʋ ɛ n ʈ i t̪ ʋ ɛ n ʈ i s ɪ k s @sp "
-            "s oː @sp a n d̪ a ɾ ʉː @sp ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
+            "eː ɛ m ɒ n t̪ ʋ ɛ l ʋ n ə ʋ ɛ m b ə ɹ t̪ ʋ ɛ n ʈ i t̪ ʋ ɛ n ʈ i s ɪ k s "
+            "s oː a n d̪ a ɾ ʉː ʃ ʊ ɖ ə ɹ aj ʋ ɒ n ʈ aj m}"
         ),
-        "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed with clear pause and authentic phonetics.",
+        "description": "Numbers expanded; Telugu loanword 'andaroo' transcribed with authentic phonetics.",
     },
 }
 
@@ -214,9 +183,9 @@ parser.add_argument("--d_control", type=float, default=1.25, help="Duration cont
 parser.add_argument(
     "--mode",
     type=str,
-    default="duration_improved",
-    choices=["baseline", "duration_improved"],
-    help="Duration regulation mode: 'duration_improved' (default, calibrated vowel-protected) or 'baseline'",
+    default="baseline",
+    choices=["baseline"],
+    help="Duration regulation mode: 'baseline' (pure standard FastSpeech 2)",
 )
 cli_args, _ = parser.parse_known_args()
 print(f"Mode: {cli_args.mode} | Duration Control: {cli_args.d_control}")
@@ -248,18 +217,9 @@ for sent_id, info in test_sentences.items():
         log_d = model.variance_adaptor.duration_predictor(output, src_mask)
         d_raw = torch.clamp(torch.exp(log_d) - 1, min=0).squeeze(0)
 
-        if cli_args.mode == "baseline":
-            d_base = torch.round(d_raw)
-            d_scaled = torch.clamp(torch.round(d_base * cli_args.d_control), min=0)
-        else:
-            # Phase 4 calibrated duration regulation + selective vowel nucleus protection
-            d_scaled = torch.round(d_raw * cli_args.d_control)
-            for idx, tok in enumerate(tokens):
-                if tok in VOWELS and d_scaled[idx] < 3.0:
-                    d_scaled[idx] = 3.0
-                if tok == 'ɾ' and d_scaled[idx] < 2.0:
-                    d_scaled[idx] = 2.0
-
+        # Standard FastSpeech 2 length regulation
+        d_base = torch.round(d_raw)
+        d_scaled = torch.clamp(torch.round(d_base * cli_args.d_control), min=0)
         d_scaled_batch = d_scaled.unsqueeze(0)
 
         # Pitch and energy

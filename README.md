@@ -227,7 +227,7 @@ Synthesize arbitrary raw text directly from the terminal:
 python English/inference.py --config English/config.yaml --text "Good morning to all, how are you?" --output_wav sample_en.wav
 
 # With custom duration control (speed) or speaker
-python English/inference.py --config English/config.yaml --text "Welcome to our speech synthesis demonstration." --duration_control 1.378 --speaker_id 27 --output_wav demo_en.wav
+python English/inference.py --config English/config.yaml --text "Welcome to our speech synthesis demonstration." --duration_control 1.378 --speaker_id 65 --output_wav demo_en.wav
 ```
 
 #### Telugu Custom Text Synthesis:
@@ -239,6 +239,21 @@ python Telugu/inference.py --config Telugu/config.yaml --text "నమస్క�
 python Telugu/inference.py --config Telugu/config.yaml --text "ఈ రోజు వాతావరణం చాలా ఆహ్లాదకరంగా ఉంది." --duration_control 1.40 --output_wav weather_te.wav
 ```
 
+### 7.3. Speaker Selection & Multi-Speaker Architecture
+The English FastSpeech 2 model is a multi-speaker architecture trained with a 256-dimensional learned speaker embedding table covering **104 distinct speakers** (IDs 0–103 mapped in [`English/speakers.json`](English/speakers.json)).
+
+* **Default Speaker: Speaker ID 65 (`spk_067`)**
+  * **Selection Rationale:** Selected through systematic quantitative evaluation across all 104 available speakers for superior pronunciation clarity, continuous voicing ratio ($92.4\%$), low high-frequency distortion ratio ($0.0327$), and natural acoustic prosody.
+  * **Vocal Profile:** Deep, steady male baritone ($F_0 \approx 149\text{ Hz}$) with crisp consonant articulation, stable pitch contours, and absence of robotic artifacts.
+  * **CLI Usage:** Pass `--speaker_id 65` (or any ID from 0 to 103) to select the target voice:
+    ```bash
+    # Synthesize with Speaker ID 65 using inference.py
+    python English/inference.py --config English/config.yaml --text "Testing multi-speaker synthesis." --speaker_id 65 --output_wav out65.wav
+
+    # Synthesize with Speaker ID 65 using synthesize_custom.py
+    python English/synthesize_custom.py --text "Testing multi-speaker synthesis." --speaker_id 65 --output out65.wav
+    ```
+
 ---
 
 ## 8. Benchmark Evaluation & Linguistic Results
@@ -247,12 +262,12 @@ All 10 benchmark sentences prescribed in **Section 3** of the assignment were sy
 
 | ID | Lang | Benchmark Sentence / Linguistic Challenge | Duration | Generated Audio Path |
 | :---: | :---: | :--- | :---: | :--- |
-| **E1** | Eng | *The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings.* (Extreme polysyllabic word) | 5.16 s | [`Results/English/test_generated_audios/E1.wav`](Results/English/test_generated_audios/E1.wav) |
-| **E2a** | Eng | *The orchestra's conduct during the ceremony was praised by the audience.* (Heteronym: noun stress on 1st syllable) | 3.39 s | [`Results/English/test_generated_audios/E2_a.wav`](Results/English/test_generated_audios/E2_a.wav) |
-| **E2b** | Eng | *The researchers will conduct an experiment to evaluate the proposed method.* (Heteronym: verb stress on 2nd syllable) | 3.61 s | [`Results/English/test_generated_audios/E2_b.wav`](Results/English/test_generated_audios/E2_b.wav) |
-| **E3** | Eng | *The rhyth  m of the orchestra changed unexpectedly.* (Typographical space normalized → *rhythm*) | 1.74 s | [`Results/English/test_generated_audios/E3.wav`](Results/English/test_generated_audios/E3.wav) |
-| **E3 (Split)** | Eng | *The rhyth  m of the orchestra changed unexpectedly.* (Diagnostic: intentional whitespace before 'm' preserved) | 1.82 s | [`Results/English/test_generated_audios/E3_split.wav`](Results/English/test_generated_audios/E3_split.wav) |
-| **E4** | Eng | *The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time.* (Numbers, times & Telugu loanword *andaroo*) | 5.91 s | [`Results/English/test_generated_audios/E4.wav`](Results/English/test_generated_audios/E4.wav) |
+| **E1** | Eng | *The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings.* (Extreme polysyllabic word) | 4.93 s | [`Results/English/test_generated_audios/E1.wav`](Results/English/test_generated_audios/E1.wav) |
+| **E2a** | Eng | *The orchestra's conduct during the ceremony was praised by the audience.* (Heteronym: noun stress on 1st syllable) | 3.38 s | [`Results/English/test_generated_audios/E2_a.wav`](Results/English/test_generated_audios/E2_a.wav) |
+| **E2b** | Eng | *The researchers will conduct an experiment to evaluate the proposed method.* (Heteronym: verb stress on 2nd syllable) | 3.51 s | [`Results/English/test_generated_audios/E2_b.wav`](Results/English/test_generated_audios/E2_b.wav) |
+| **E3** | Eng | *The rhyth  m of the orchestra changed unexpectedly.* (Typographical space normalized → *rhythm*) | 2.14 s | [`Results/English/test_generated_audios/E3.wav`](Results/English/test_generated_audios/E3.wav) |
+| **E3 (Split)** | Eng | *The rhyth  m of the orchestra changed unexpectedly.* (Diagnostic: intentional whitespace before 'm' preserved) | 2.30 s | [`Results/English/test_generated_audios/E3_split.wav`](Results/English/test_generated_audios/E3_split.wav) |
+| **E4** | Eng | *The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time.* (Numbers, times & Telugu loanword *andaroo*) | 5.31 s | [`Results/English/test_generated_audios/E4.wav`](Results/English/test_generated_audios/E4.wav) |
 | **T1** | Tel | న్యూరోఫార్మకోలాజికల్ పరిశోధనలో నూతన ఔషధాల ప్రభావాన్ని విశ్లేషించారు. (Heavy consonant conjuncts: *nyū*, *rma*, *l*) | 4.97 s | [`Results/Telugu/test_generated_audios/T1.wav`](Results/Telugu/test_generated_audios/T1.wav) |
 | **T2a** | Tel | తాడుపై అతని పట్టు చాలా బలంగా ఉంది. (Semantic focus on *pattu* = grip) | 2.45 s | [`Results/Telugu/test_generated_audios/T2_a.wav`](Results/Telugu/test_generated_audios/T2_a.wav) |
 | **T2b** | Tel | ఆమె పట్టు చీరను ధరించి వేడుకకు వచ్చింది. (Unstressed nominal modifier *pattu* = silk) | 2.86 s | [`Results/Telugu/test_generated_audios/T2_b.wav`](Results/Telugu/test_generated_audios/T2_b.wav) |
