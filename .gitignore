@@ -16,6 +16,8 @@
 !Telugu/checkpoints/README.md
 !English/inference/hifigan/generator_universal.pth.tar
 !Telugu/inference/hifigan/generator_universal.pth.tar
+!English/train/hifigan/generator_universal.pth.tar
+!Telugu/train/hifigan/generator_universal.pth.tar
 
 # --- Python Bytecode & Cache ---
 __pycache__/
