@@ -39,8 +39,11 @@ try:
 except ImportError:
     plt = None
 
-# Ensure package root is in sys.path
+# Ensure package root and train directory are in sys.path
 PACKAGE_ROOT = os.path.dirname(os.path.abspath(__file__))
+TRAIN_DIR = os.path.join(PACKAGE_ROOT, "train")
+if os.path.exists(TRAIN_DIR) and TRAIN_DIR not in sys.path:
+    sys.path.insert(0, TRAIN_DIR)
 if PACKAGE_ROOT not in sys.path:
     sys.path.insert(0, PACKAGE_ROOT)
 
@@ -1055,6 +1058,18 @@ def train(args):
                 torch.cuda.empty_cache()
             epoch += 1
 
+    except KeyboardInterrupt:
+        print("\n[Interrupt] Training interrupted by user or environment. Saving latest emergency checkpoint...")
+        retention_mgr.save_latest_resumable(
+            step=step,
+            epoch=epoch,
+            val_loss=current_val_loss,
+            best_loss=best_loss,
+            model=model,
+            optimizer=optimizer,
+        )
+        print(f"[Interrupt] Successfully preserved resumable state at step {step:,}. Exiting.")
+
     finally:
         try:
             if 'lock_file' in locals() and lock_file is not None:
@@ -1067,18 +1082,6 @@ def train(args):
                     os.remove(lpath)
         except Exception:
             pass
-
-    except KeyboardInterrupt:
-        print("\n[Interrupt] Training interrupted by user or environment. Saving latest emergency checkpoint...")
-        retention_mgr.save_latest_resumable(
-            step=step,
-            epoch=epoch,
-            val_loss=current_val_loss,
-            best_loss=best_loss,
-            model=model,
-            optimizer=optimizer,
-        )
-        print(f"[Interrupt] Successfully preserved resumable state at step {step:,}. Exiting.")
 
 
 if __name__ == "__main__":
