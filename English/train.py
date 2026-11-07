@@ -687,7 +687,12 @@ def load_configs(args):
     else:
         p_path = preprocess_config["path"]["preprocessed_path"]
         if not os.path.isabs(p_path):
-            p_path = os.path.join(PACKAGE_ROOT, p_path)
+            p_cand = os.path.join(PACKAGE_ROOT, p_path)
+            if not os.path.exists(p_cand):
+                proj_cand = os.path.join(os.path.dirname(PACKAGE_ROOT), "preprocessing", "English")
+                if os.path.exists(proj_cand):
+                    p_cand = proj_cand
+            p_path = p_cand
         preprocess_config["path"]["preprocessed_path"] = p_path
 
     # Output directory handling (Kaggle friendly: strictly separated from Input)

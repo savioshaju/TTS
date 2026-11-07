@@ -21,9 +21,17 @@ import torch
 import yaml
 from torch.utils.data import DataLoader
 
-ROOT_DIR = r"D:\Savio Shaju\TTS"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+# Prioritize tracked Telugu/train implementation, falling back to FastSpeech2-master if available
+TELUGU_TRAIN_DIR = os.path.join(ROOT_DIR, "Telugu", "train")
+if os.path.isdir(TELUGU_TRAIN_DIR) and TELUGU_TRAIN_DIR not in sys.path:
+    sys.path.insert(0, TELUGU_TRAIN_DIR)
+
 FASTSPEECH2_DIR = os.path.join(ROOT_DIR, "FastSpeech2-master")
-sys.path.insert(0, FASTSPEECH2_DIR)
+if os.path.isdir(FASTSPEECH2_DIR) and FASTSPEECH2_DIR not in sys.path:
+    sys.path.insert(0, FASTSPEECH2_DIR)
 
 from dataset import Dataset
 from model import FastSpeech2

@@ -8,14 +8,15 @@ A complete, production-grade implementation of the **FastSpeech 2** non-autoregr
 ## Table of Contents
 1. [Objective & Project Overview](#1-objective--project-overview)
 2. [Deliverables & Repository Layout](#2-deliverables--repository-layout)
-3. [Model Checkpoints & Weights Availability (Google Drive)](#3-model-checkpoints--weights-availability-google-drive)
-4. [Dataset Download Instructions](#4-dataset-download-instructions)
-5. [Dataset Preparation & Preprocessing Pipeline](#5-dataset-preparation--preprocessing-pipeline)
-6. [Training Instructions](#6-training-instructions)
-7. [Inference & Speech Synthesis](#7-inference--speech-synthesis)
-8. [Benchmark Evaluation & Linguistic Results](#8-benchmark-evaluation--linguistic-results)
-9. [Loss Curves & Convergence Analysis](#9-loss-curves--convergence-analysis)
-10. [Reproducibility Checklist](#10-reproducibility-checklist)
+3. [Prerequisites and Environment Setup](#3-prerequisites-and-environment-setup)
+4. [Model Checkpoints & Vocoders (Google Drive)](#4-model-checkpoints--vocoders-google-drive)
+5. [Dataset Download Instructions (Hugging Face CLI)](#5-dataset-download-instructions-hugging-face-cli)
+6. [5-Hour Dataset Preparation and Subsampling](#6-5-hour-dataset-preparation-and-subsampling)
+7. [Audio Standardization, Forced Alignment & Acoustic Preprocessing](#7-audio-standardization-forced-alignment--acoustic-preprocessing)
+8. [Training Instructions (Kaggle Dual-GPU & Local)](#8-training-instructions-kaggle-dual-gpu--local)
+9. [Inference & Speech Synthesis (Benchmark & Custom)](#9-inference--speech-synthesis-benchmark--custom)
+10. [Benchmark Evaluation & Linguistic Results](#10-benchmark-evaluation--linguistic-results)
+11. [Loss Curves & Convergence Analysis](#11-loss-curves--convergence-analysis)
 
 ---
 
@@ -90,21 +91,69 @@ project/
 
 ---
 
-## 3. Model Checkpoints & Weights Availability (Google Drive)
+## 3. Prerequisites and Environment Setup
+
+To reproduce this project from scratch, follow these setup steps in order:
+
+### 3.1. Step 1: Clone the Repository
+Clone the project repository from GitHub and navigate into the workspace directory:
+```bash
+git clone https://github.com/savioshaju/TTS.git
+cd TTS
+```
+
+### 3.2. Step 2: Virtual Environment Creation
+Use Python 3.11 to create and activate a virtual environment:
+```bash
+python -m venv .venv
+
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+# Windows (Command Prompt):
+.venv\Scripts\activate.bat
+# Linux / macOS:
+source .venv/bin/activate
+```
+
+### 3.3. Step 3: Install Dependencies
+Upgrade pip and install all pinned packages from [`requirements.txt`](requirements.txt):
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+The implementation runs on Python 3.11 with PyTorch 2.5, TorchAudio, NumPy, SciPy, Librosa, PyWorld, Matplotlib, and HuggingFace Transformers. Pinned package versions are listed in [`requirements.txt`](requirements.txt).
+
+### 3.4. External Alignment Tools
+* **English (Montreal Forced Aligner v2.2)**: Install MFA in a dedicated conda environment and download the pre-trained acoustic model and Indian English dictionary:
+  ```bash
+  # Create and activate conda environment for MFA
+  conda create -n mfa python=3.10 -y
+  conda activate mfa
+  conda install -c conda-forge montreal-forced-aligner=2.2.17 -y
+
+  # Download acoustic model and Indian English dictionary
+  mfa model download acoustic english_mfa
+  mfa model download dictionary english_india_mfa
+  ```
+* **Telugu (Meta MMS Aligner)**: Telugu forced alignment uses Meta's Massively Multilingual Speech model (`facebook/mms-1b-all`). Model weights download automatically via HuggingFace Transformers on the first preprocessing run; no external tools or compilers are required.
+
+---
+
+## 4. Model Checkpoints & Vocoders (Google Drive)
 
 > [!IMPORTANT]
 > **Checkpoints Download Link (Google Drive)**:  
 > 🔗 **[Google Drive Shared Checkpoints Folder](https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing)**  
 > *Per Assignment Section 4.b, model checkpoints exceeding GitHub's file-size limits are hosted on Google Drive. The link is publicly accessible and permanent.*
 
-### Pre-Bundled vs. External Assets:
-1. **HiFi-GAN Neural Vocoders (`generator_universal.pth.tar`)**: Pre-bundled and tracked directly in the Git repository at:
+### Included Assets & Checkpoint Downloads:
+1. **HiFi-GAN Neural Vocoders (`generator_universal.pth.tar`)**: Included directly in the repository at:
    - `English/inference/hifigan/generator_universal.pth.tar`
    - `Telugu/inference/hifigan/generator_universal.pth.tar`
-   *(No download needed for vocoders!)*
+   *(No separate vocoder download required)*
 2. **FastSpeech 2 Model Checkpoints**: Download **only 2 files** from Google Drive and place them into the respective `checkpoints/` directories:
 
-| Language | Checkpoint in Drive | Local Destination Path | File Size | Description |
+| Language | Checkpoint in Drive | Local Destination Path | File Size | Checkpoint Step & Description |
 | :--- | :--- | :--- | :---: | :--- |
 | **English** | `English/best_model.pth` | `English/checkpoints/best_model.pth` | ~399 MB | Step 61,000 (Optimal Perceptual Quality) |
 | **Telugu** | `Telugu/best_model.pth` | `Telugu/checkpoints/best_model.pth` | ~400 MB | Step 74,000 (Optimal Perceptual Quality) |
@@ -125,67 +174,87 @@ ls -lh English/checkpoints/best_model.pth Telugu/checkpoints/best_model.pth
 
 ---
 
-## 4. Dataset Download Instructions
+## 5. Dataset Download Instructions (Hugging Face CLI)
 
-### 4.1. English Dataset: AI4Bharat Svarah
-* **Corpus**: AI4Bharat Svarah Indian English Speech Dataset.
-* **Description**: Multi-speaker crowdsourced audio from 104 native Indian speakers covering 19 regional L1 backgrounds.
-* **Download Sources**:
-  1. **Hugging Face Hub**:
-     ```bash
-     # Install Hugging Face CLI
-     pip install huggingface_hub
-
-     # Download Svarah dataset to local staging folder
-     huggingface-cli download ai4bharat/svarah --repo-type dataset --local-dir datasets/raw/svarah
-     ```
-  2. **Official Repository**: [https://github.com/AI4Bharat/Svarah](https://github.com/AI4Bharat/Svarah)
-* **Required Files**: Unpack WAV audio clips into `datasets/raw/svarah/audio/` and place the transcript metadata CSV at `datasets/raw/svarah/metadata.csv`.
-
----
-
-### 4.2. Telugu Dataset: IndicTTS
-* **Corpus**: IndicTTS Telugu Speech Corpus (IIT Madras / MeitY).
-* **Description**: Professional studio-recorded speech from 2 native voice talents (1 female @ 48 kHz, 1 male @ 16 kHz).
-* **Download Sources**:
-  1. **Official IndicTTS Portal**:
-     Visit [https://www.iitm.ac.in/donlab/tts/database.php](https://www.iitm.ac.in/donlab/tts/database.php)  
-     Under Telugu, download:
-     - `Telugu Female Studio Recordings (wav.zip + txt.zip)`
-     - `Telugu Male Studio Recordings (wav.zip + txt.zip)`
-  2. **AI4Bharat Mirror**: [https://ai4bharat.iitm.ac.in/](https://ai4bharat.iitm.ac.in/) or Hugging Face `ai4bharat/IndicTTS`
-* **Required Files**: Unpack audio into `datasets/raw/telugu/female/wavs/` and `datasets/raw/telugu/male/wavs/` with UTF-8 transcripts.
-
----
-
-## 5. Dataset Preparation & Preprocessing Pipeline
-
-### 5.1. Audio Standardization & Filtering
-1. **Sampling Rate**: Resampled to **16,000 Hz, 16-bit mono PCM**. 48 kHz Telugu audio is decimated with a 64-tap Kaiser-windowed polyphase sinc filter (cutoff 7,600 Hz) to eliminate aliasing.
-2. **Quality Filtering**: Clips with digital clipping ($|x| \ge 0.999$), $\text{SNR} < 15\text{ dB}$, or duration $< 1.0\text{ s}$ or $> 12.0\text{ s}$ are filtered out.
-3. **Amplitude Normalization**: Peak-normalized to **0.95** ($-0.45\text{ dBFS}$).
-
-### 5.2. Linguistic Tokenization & Alignment
-* **English (MFA v2.2)**: Text normalized (numbers, dates, abbreviations verbalized) $\to$ MFA IPA lexicon lookup with Indian English dental plosive substitution rules $\to$ Kaldi HMM-GMM alignment producing 16 ms mel-frame phone durations.
-* **Telugu (Meta MMS)**: Unicode NFC composition $\to$ numeral expansion $\to$ native akshara syllable segmentation (460 tokens) $\to$ Meta MMS CTC forced alignment (`facebook/mms-1b-all`) with Viterbi trellis dynamic programming.
-
-### 5.3. Running Preprocessing
+Download the raw datasets directly from Hugging Face using the official Hugging Face Hub CLI (zero custom download scripts required):
 
 ```bash
-# English Preprocessing (MFA forced alignment + acoustic extraction)
-python English/preprocess.py --config English/config.yaml --stage all --jobs 8
+# Install Hugging Face Hub CLI
+pip install huggingface_hub
 
-# Telugu Preprocessing (MMS forced alignment + acoustic extraction)
-python Telugu/preprocess.py --config Telugu/config.yaml
+# English: AI4Bharat Svarah (~1.0 GB) -> datasets/Svarah/data/test-*.parquet
+huggingface-cli download ai4bharat/Svarah --repo-type dataset --local-dir datasets/Svarah
+
+# Telugu: IndicTTS Telugu (~6.0 GB) -> datasets/IndicTTS_Telugu/data/train-*.parquet
+huggingface-cli download SPRINGLab/IndicTTS_Telugu --repo-type dataset --local-dir datasets/IndicTTS_Telugu
 ```
 
 ---
 
-## 6. Training Instructions
+## 6. 5-Hour Dataset Preparation and Subsampling
 
-Models were trained for **100,000 steps** on dual NVIDIA Tesla T4 GPUs using PyTorch Distributed/DataParallel with AMP FP16 mixed precision. Memory safeguards (`malloc_trim(0)` and dynamic garbage collection) ensure 0% memory leakage.
+Extract raw audio and generate the 5-hour training and 1-hour validation splits in accordance with assignment data constraints:
 
-### 6.1. Local / Server Training
+```bash
+# English: 4.98 h train (3,419 utt.), 1.09 h val (746 utt.) across 104 speakers
+python English/preprocess/create_svarah_splits.py
+
+# Telugu: 4.9988 h aligned train (2,248 utt.), 1.0030 h val (445 utt.), 50/50 gender balance
+python Telugu/preprocess/create_telugu_splits.py
+```
+
+Curated partitions are stored in:
+- English: `datasets/prepared/english_speaker_independent/`
+- Telugu: `datasets/prepared/telugu_prepared_v2/`
+
+---
+
+## 7. Audio Standardization, Forced Alignment & Acoustic Preprocessing
+
+Execute audio downsampling, forced phonemic/akshara alignment, and acoustic feature extraction:
+
+### 7.1. Audio Resampling (Telugu)
+Downsample male studio recordings from 48 kHz to 16 kHz using a 64-tap Kaiser sinc filter:
+```bash
+python Telugu/preprocess/resample_telugu_audio.py
+# Outputs 16 kHz WAVs to: preprocessing/Telugu/wavs_16k/
+```
+
+### 7.2. Forced Alignment
+```bash
+# English MFA alignment (outputs TextGrids to preprocessing/English/TextGrid/):
+python English/preprocess.py --config English/config.yaml --stage align --jobs 8
+
+# Telugu MMS CTC alignment (outputs token alignments to preprocessing/Telugu/alignments/):
+python Telugu/preprocess/run_telugu_mms_alignment.py
+```
+
+### 7.3. Acoustic Feature Extraction
+Extract 80-channel log mel-spectrograms, continuous $F_0$ (PyWorld Harvest), and frame energy ($L_2$-norm):
+```bash
+# English feature extraction (mel, pitch, energy, duration -> preprocessed_data/):
+python English/preprocess.py --config English/config.yaml --stage convert
+
+# Telugu feature extraction (mel, pitch, energy, duration -> preprocessed_data/):
+python Telugu/preprocess/preprocess.py --config Telugu/config.yaml
+```
+Extracted features and normalization statistics are stored in `preprocessed_data/stats.json`, `preprocessed_data/mel/`, `preprocessed_data/pitch/`, `preprocessed_data/energy/`, and `preprocessed_data/duration/`.
+
+---
+
+## 8. Training Instructions (Kaggle Dual-GPU & Local)
+
+Both models were trained for **100,000 steps** on dual NVIDIA Tesla T4 GPUs using PyTorch DataParallel with Automated Mixed Precision (AMP FP16) and a total batch size of 16 (8 utterances per GPU).
+
+### 8.1. Kaggle Dual-GPU Execution
+Self-contained Kaggle notebooks are provided in the repository:
+* English: [`English/English_FastSpeech2_Kaggle.ipynb`](English/English_FastSpeech2_Kaggle.ipynb)
+* Telugu: [`Telugu/Telugu_FastSpeech2_Kaggle.ipynb`](Telugu/Telugu_FastSpeech2_Kaggle.ipynb)
+
+**Workflow**: Set the Kaggle accelerator to **GPU T4 x2**. The notebook automatically restores checkpoints across 12-hour sessions and reaches 100,000 steps without loss disruption.
+
+### 8.2. Standalone Local / Server Training
+Alternatively, run training directly on any local or server GPU:
 ```bash
 # Train English FastSpeech 2 (100k steps)
 python English/train.py --config English/config.yaml
@@ -194,19 +263,12 @@ python English/train.py --config English/config.yaml
 python Telugu/train.py --config Telugu/config.yaml
 ```
 
-### 6.2. Kaggle Dual-GPU Execution
-Plug-and-play Jupyter notebooks are provided:
-* English: [`English/English_FastSpeech2_Kaggle.ipynb`](English/English_FastSpeech2_Kaggle.ipynb)
-* Telugu: [`Telugu/Telugu_FastSpeech2_Kaggle.ipynb`](Telugu/Telugu_FastSpeech2_Kaggle.ipynb)
-
-Set accelerator to **GPU T4 x2**. The notebook automatically restores checkpoints and manages disk quotas.
-
 ---
 
-## 7. Inference & Speech Synthesis
+## 9. Inference & Speech Synthesis (Benchmark & Custom)
 
-### 7.1. Synthesizing All Official Assignment Benchmark Sentences
-To regenerate all 5 benchmark sentences and save them to `Results/<Language>/test_generated_audios/`:
+### 9.1. Synthesizing All Official Assignment Benchmark Sentences
+To synthesize all ten prescribed benchmark test sentences (E1–E4 and T1–T4) and save them to `Results/<Language>/test_generated_audios/`:
 
 ```bash
 # English benchmark suite (E1, E2a, E2b, E3, E4)
@@ -216,30 +278,26 @@ python English/inference.py --config English/config.yaml --test_all
 python Telugu/inference.py --config Telugu/config.yaml --test_all
 ```
 
----
-
-### 7.2. Synthesizing Custom Sentences (CLI)
-Synthesize arbitrary raw text directly from the terminal:
+### 9.2. Synthesizing Custom Sentences (CLI)
+Synthesize arbitrary raw text directly from the terminal with duration calibration ($d_{\text{control}} = 1.25$):
 
 #### English Custom Text Synthesis:
 ```bash
-# Basic synthesis
-python English/inference.py --config English/config.yaml --text "Good morning to all, how are you?" --output_wav sample_en.wav
-
-# With custom duration control (speed) or speaker
-python English/inference.py --config English/config.yaml --text "Welcome to our speech synthesis demonstration." --duration_control 1.378 --speaker_id 65 --output_wav demo_en.wav
+# Custom English synthesis with calibrated duration control and reference speaker 27
+python English/inference.py --config English/config.yaml \
+    --text "Good morning to all, how are you?" \
+    --duration_control 1.25 --speaker_id 27 --output_wav sample_en.wav
 ```
 
 #### Telugu Custom Text Synthesis:
 ```bash
-# Basic synthesis
-python Telugu/inference.py --config Telugu/config.yaml --text "నమస్కారం, మీరు ఎలా ఉన్నారు?" --output_wav sample_te.wav
-
-# With calibrated duration pacing
-python Telugu/inference.py --config Telugu/config.yaml --text "ఈ రోజు వాతావరణం చాలా ఆహ్లాదకరంగా ఉంది." --duration_control 1.40 --output_wav weather_te.wav
+# Custom Telugu synthesis from text string or file
+python Telugu/inference.py --config Telugu/config.yaml \
+    --text "నమస్కారం, మీరు ఎలా ఉన్నారు?" \
+    --duration_control 1.25 --speaker_id 0 --output_wav sample_te.wav
 ```
 
-### 7.3. Speaker Selection & Multi-Speaker Architecture
+### 9.3. Speaker Selection & Multi-Speaker Architecture
 The English FastSpeech 2 model is a multi-speaker architecture trained with a 256-dimensional learned speaker embedding table covering **104 distinct speakers** (IDs 0–103 mapped in [`English/speakers.json`](English/speakers.json)).
 
 * **Default Speaker: Speaker ID 27 (`spk_029`)**
@@ -247,16 +305,12 @@ The English FastSpeech 2 model is a multi-speaker architecture trained with a 25
   * **Vocal Profile:** Clear, natural Indian English female voice ($F_0 \approx 210\text{ Hz}$) with high intelligibility and smooth pitch trajectories.
   * **CLI Usage:** Pass `--speaker_id 27` (or any ID from 0 to 103) to select the target voice:
     ```bash
-    # Synthesize with Speaker ID 27 using inference.py
     python English/inference.py --config English/config.yaml --text "Testing multi-speaker synthesis." --speaker_id 27 --output_wav out27.wav
-
-    # Synthesize with Speaker ID 27 using synthesize_custom.py
-    python English/synthesize_custom.py --text "Testing multi-speaker synthesis." --speaker_id 27 --output out27.wav
     ```
 
 ---
 
-## 8. Benchmark Evaluation & Linguistic Results
+## 10. Benchmark Evaluation & Linguistic Results
 
 All 10 benchmark sentences prescribed in **Section 3** of the assignment were synthesized using the duration-calibrated acoustic models and HiFi-GAN vocoder:
 
@@ -276,7 +330,7 @@ All 10 benchmark sentences prescribed in **Section 3** of the assignment were sy
 
 ---
 
-## 9. Loss Curves & Convergence Analysis
+## 11. Loss Curves & Convergence Analysis
 
 | Language | Checkpoint Description | Step | Train Loss | Validation Loss | Selection Justification |
 | :--- | :--- | :---: | :---: | :---: | :--- |
@@ -294,14 +348,3 @@ All 10 benchmark sentences prescribed in **Section 3** of the assignment were sy
 | Telugu Training Loss | Telugu Validation Loss |
 | :---: | :---: |
 | ![Telugu Training Loss](Results/Telugu/training_loss.png) | ![Telugu Validation Loss](Results/Telugu/validation_loss.png) |
-
----
-
-## 10. Reproducibility Checklist
-
-- [x] Python 3.11 environment with dependencies frozen in [`requirements.txt`](requirements.txt).
-- [x] Zero hardcoded absolute paths: all scripts dynamically resolve paths via `os.path.abspath(__file__)`.
-- [x] Universal HiFi-GAN vocoder pre-bundled at `English/inference/hifigan/` and `Telugu/inference/hifigan/`.
-- [x] Pre-computed `stats.json`, `speakers.json`, and pronunciation lexicons pre-committed in repository.
-- [x] FastSpeech 2 checkpoints hosted on permanent [Google Drive](https://drive.google.com/drive/folders/1MYS5zcsyehxDN5n4XaKj5jCidpUZ-efw?usp=sharing).
-- [x] Full technical report compiled with XeLaTeX at [`Report/Technical_Report.pdf`](Report/Technical_Report.pdf).

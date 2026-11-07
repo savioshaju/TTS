@@ -8,8 +8,19 @@ import numpy as np
 import soundfile as sf
 from praatio import textgrid
 
-# Add FastSpeech2 to path for text cleaning and symbols
-sys.path.append(r"D:\Savio Shaju\TTS\FastSpeech2-master")
+# Dynamic root directory resolution
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+# Prioritize tracked English/train text processing, falling back to FastSpeech2-master if available
+EN_TRAIN_DIR = os.path.join(ROOT_DIR, "English", "train")
+if os.path.isdir(EN_TRAIN_DIR) and EN_TRAIN_DIR not in sys.path:
+    sys.path.insert(0, EN_TRAIN_DIR)
+
+FASTSPEECH2_DIR = os.path.join(ROOT_DIR, "FastSpeech2-master")
+if os.path.isdir(FASTSPEECH2_DIR) and FASTSPEECH2_DIR not in sys.path:
+    sys.path.insert(0, FASTSPEECH2_DIR)
+
 from text import _clean_text
 from text.symbols import symbols
 
@@ -17,12 +28,14 @@ SAMPLING_RATE = 16000
 HOP_LENGTH = 256
 FPS = SAMPLING_RATE / HOP_LENGTH  # 62.5
 
-MFA_ENV_PATH = r"D:\Savio Shaju\TTS\.mfa_env"
-MFA_ROOT_DIR = r"D:\Savio Shaju\TTS\mfa_root"
+MFA_ENV_PATH = os.environ.get("MFA_ENV_PATH", os.path.join(ROOT_DIR, ".mfa_env"))
+MFA_ROOT_DIR = os.environ.get("MFA_ROOT_DIR", os.path.join(ROOT_DIR, "mfa_root"))
 PYTHON_EXE = os.path.join(MFA_ENV_PATH, "python.exe")
+if not os.path.exists(PYTHON_EXE):
+    PYTHON_EXE = sys.executable
 
-PREPROCESSING_BASE = r"D:\Savio Shaju\TTS\preprocessing\English"
-DATASET_BASE = r"D:\Savio Shaju\TTS\datasets\prepared\english_speaker_independent"
+PREPROCESSING_BASE = os.path.join(ROOT_DIR, "preprocessing", "English")
+DATASET_BASE = os.path.join(ROOT_DIR, "datasets", "prepared", "english_speaker_independent")
 
 def get_env():
     env = os.environ.copy()
@@ -89,18 +102,32 @@ def stage_corpus(split_name):
 
 def run_mfa_alignment(input_dir, output_dir, num_jobs=8):
     os.makedirs(output_dir, exist_ok=True)
-    cmd = [
-        PYTHON_EXE,
-        "-m", "montreal_forced_aligner.command_line.mfa",
-        "align",
-        input_dir,
-        "english_india_mfa",
-        "english_mfa",
-        output_dir,
-        "--clean",
-        "--overwrite",
-        "-j", str(num_jobs)
-    ]
+    mfa_executable = shutil.which("mfa")
+    if mfa_executable:
+        cmd = [
+            mfa_executable,
+            "align",
+            input_dir,
+            "english_india_mfa",
+            "english_mfa",
+            output_dir,
+            "--clean",
+            "--overwrite",
+            "-j", str(num_jobs)
+        ]
+    else:
+        cmd = [
+            PYTHON_EXE,
+            "-m", "montreal_forced_aligner.command_line.mfa",
+            "align",
+            input_dir,
+            "english_india_mfa",
+            "english_mfa",
+            output_dir,
+            "--clean",
+            "--overwrite",
+            "-j", str(num_jobs)
+        ]
     
     print(f"\nRunning MFA alignment command:\n{' '.join(cmd)}")
     start_t = time.time()
