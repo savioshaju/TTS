@@ -59,11 +59,13 @@ def synthesize_utterance(model, vocoder, text_seq, speaker_id, configs, control_
 
 
 def main():
+    sys.argv = [arg for arg in sys.argv if arg != "\\"]
     parser = argparse.ArgumentParser(description="FastSpeech 2 Speech Synthesis")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/best_model.pth", help="Checkpoint file (.pth / .pth.tar)")
     parser.add_argument("--config", type=str, default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--data_dir", type=str, default=None, help="Path to preprocessed data directory")
     parser.add_argument("--text", type=str, default=None, help="Raw English text to synthesize")
+    parser.add_argument("--text-file", "--text_file", type=str, default=None, help="Path to text file containing English text")
     parser.add_argument("--phonemes", type=str, default=None, help="Phoneme sequence, e.g. '{@ð @ɪ @s @sp @ɪ @z @sp @ɐ @sp @t @ɛ @s @t}'")
     parser.add_argument("--speaker_id", type=int, default=27, help="Speaker integer ID (default: 27 = spk_029)")
     parser.add_argument("--output_wav", type=str, default="synthesized_output.wav", help="Destination WAV file")
@@ -78,6 +80,10 @@ def main():
         print("Running full official English benchmark synthesis...")
         generate_assignment_audios.main()
         return
+
+    if args.text_file and os.path.exists(args.text_file):
+        with open(args.text_file, "r", encoding="utf-8") as f:
+            args.text = f.read().strip()
 
     config_path = args.config
     if not os.path.exists(config_path):

@@ -145,10 +145,12 @@ def synthesize_utterance(model, vocoder, text_seq, speaker_id, configs, control_
 
 
 def main():
+    sys.argv = [arg for arg in sys.argv if arg != "\\"]
     parser = argparse.ArgumentParser(description="Telugu FastSpeech 2 Speech Synthesis")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/best_model.pth", help="Checkpoint file (.pth)")
     parser.add_argument("--config", type=str, default="config.yaml", help="Path to config.yaml")
-    parser.add_argument("--text", type=str, default="నమస్కారం", help="Telugu text to synthesize")
+    parser.add_argument("--text", type=str, default=None, help="Telugu text to synthesize")
+    parser.add_argument("--text-file", "--text_file", type=str, default=None, help="Path to text file containing Telugu text")
     parser.add_argument("--speaker_id", type=int, default=0, help="Speaker integer ID (0: female, 1: male)")
     parser.add_argument("--output_wav", type=str, default="telugu_synthesized.wav", help="Destination WAV file")
     parser.add_argument("--pitch_control", type=float, default=1.0)
@@ -166,6 +168,13 @@ def main():
         except Exception as e:
             print(f"Error running benchmark generator: {e}")
             return
+
+    if args.text_file and os.path.exists(args.text_file):
+        with open(args.text_file, "r", encoding="utf-8") as f:
+            args.text = f.read().strip()
+
+    if not args.text:
+        args.text = "నమస్కారం"
 
     config_path = args.config
     if not os.path.exists(config_path):

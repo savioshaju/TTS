@@ -279,22 +279,20 @@ python Telugu/inference.py --config Telugu/config.yaml --test_all
 ```
 
 ### 9.2. Synthesizing Custom Sentences (CLI)
-Synthesize arbitrary raw text directly from the terminal:
+Synthesize arbitrary raw text directly from the terminal (single-line commands work across Bash, PowerShell, and CMD):
 
 #### English Custom Text Synthesis:
 ```bash
-# Custom English synthesis with reference speaker 27
-python English/inference.py --config English/config.yaml \
-    --text "Good morning to all, how are you?" \
-    --speaker_id 27 --output_wav sample_en.wav
+python English/inference.py --config English/config.yaml --text "Good morning to all, how are you?" --speaker_id 27 --output_wav sample_en.wav
 ```
 
 #### Telugu Custom Text Synthesis:
 ```bash
-# Custom Telugu synthesis from text string or file
-python Telugu/inference.py --config Telugu/config.yaml \
-    --text "నమస్కారం, మీరు ఎలా ఉన్నారు?" \
-    --speaker_id 0 --output_wav sample_te.wav
+# Pass Telugu text string directly:
+python Telugu/inference.py --config Telugu/config.yaml --text "నమస్కారం, మీరు ఎలా ఉన్నారు?" --speaker_id 0 --output_wav sample_te.wav
+
+# Or pass a text file containing Telugu text:
+python Telugu/inference.py --config Telugu/config.yaml --text-file custom_telugu.txt --speaker_id 0 --output_wav sample_te.wav
 ```
 
 ### 9.3. Speaker Selection & Multi-Speaker Architecture
