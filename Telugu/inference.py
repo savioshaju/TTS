@@ -165,6 +165,7 @@ def main():
             return
         except Exception as e:
             print(f"Error running benchmark generator: {e}")
+            return
 
     config_path = args.config
     if not os.path.exists(config_path):
