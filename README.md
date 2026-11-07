@@ -272,10 +272,10 @@ To synthesize all ten prescribed benchmark test sentences (E1–E4 and T1–T4) 
 
 ```bash
 # English benchmark suite (E1, E2a, E2b, E3, E4)
-python English/inference.py --config English/config.yaml --test_all
+python English/generate_assignment_audios.py
 
 # Telugu benchmark suite (T1, T2a, T2b, T3, T4)
-python Telugu/inference.py --config Telugu/config.yaml --test_all
+python Telugu/generate_telugu_assignment_audios.py
 ```
 
 ### 9.2. Synthesizing Custom Sentences (CLI)

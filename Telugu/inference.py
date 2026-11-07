@@ -145,7 +145,10 @@ def synthesize_utterance(model, vocoder, text_seq, speaker_id, configs, control_
 
 
 def main():
-    sys.argv = [arg for arg in sys.argv if arg != "\\"]
+    sys.argv = [
+        re.sub(r'[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]', '-', a)
+        for a in sys.argv if a != "\\"
+    ]
     parser = argparse.ArgumentParser(description="Telugu FastSpeech 2 Speech Synthesis")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/best_model.pth", help="Checkpoint file (.pth)")
     parser.add_argument("--config", type=str, default="config.yaml", help="Path to config.yaml")
