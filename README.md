@@ -124,14 +124,22 @@ pip install -r requirements.txt
 The implementation runs on Python 3.11 with PyTorch 2.5, TorchAudio, NumPy, SciPy, Librosa, PyWorld, Matplotlib, and HuggingFace Transformers. Pinned package versions are listed in [`requirements.txt`](requirements.txt).
 
 ### 3.4. External Alignment Tools
+
+> [!NOTE]
+> **MFA Installation Prerequisite**: Montreal Forced Aligner (MFA) requires **Conda, Miniconda, or Mamba** due to its underlying C++ Kaldi/OpenFST libraries; it **cannot** be installed via standard `pip` inside a regular virtual environment (`.venv`). If Conda is not installed, download [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
+>
+> **When is MFA needed?** MFA is **only** required if you want to rerun raw phonetic forced alignment from scratch (generating TextGrids from raw audio). It is **not** required for speech synthesis, model evaluation, or benchmark generation. Pre-aligned TextGrids and preprocessed data are readily downloadable from Google Drive.
+
 * **English (Montreal Forced Aligner v2.2)**: Install MFA in a dedicated conda environment and download the pre-trained acoustic model and Indian English dictionary:
   ```bash
-  # Create and activate conda environment for MFA
+  # 1. Create and activate dedicated conda environment for MFA (Python 3.10)
   conda create -n mfa python=3.10 -y
   conda activate mfa
+
+  # 2. Install Montreal Forced Aligner from conda-forge
   conda install -c conda-forge montreal-forced-aligner=2.2.17 -y
 
-  # Download acoustic model and Indian English dictionary
+  # 3. Download acoustic model and Indian English dictionary
   mfa model download acoustic english_mfa
   mfa model download dictionary english_india_mfa
   ```
