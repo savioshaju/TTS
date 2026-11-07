@@ -8,9 +8,14 @@ import sys
 import argparse
 import yaml
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(ROOT_DIR)
-sys.path.append(os.path.join(ROOT_DIR, "FastSpeech2-master"))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PREPROCESS_DIR = os.path.join(SCRIPT_DIR, "preprocess")
+ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+TOOLS_DIR = os.path.join(ROOT_DIR, "tools")
+
+for p in [PREPROCESS_DIR, TOOLS_DIR, ROOT_DIR, os.path.join(ROOT_DIR, "FastSpeech2-master")]:
+    if os.path.exists(p) and p not in sys.path:
+        sys.path.insert(0, p)
 
 import stage_and_align_english as sae
 

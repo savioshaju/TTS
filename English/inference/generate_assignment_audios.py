@@ -148,12 +148,20 @@ test_sentences = {
         "description": "Heteronym 'conduct' as VERB: iambic stress (/k ə n ɖ ə k ʈ/).",
     },
     "E3": {
-        "text": "The rhyth  m of the orchestra changed unexpectedly.",
+        "text": "The rhythm of the orchestra changed unexpectedly.",
         "phonemes": (
             "{d̪ ə ɹ ɪ d̪ ə m ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
             "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
         ),
-        "description": "Normalised 'rhyth  m' → /ɹ ɪ d̪ ə m/.",
+        "description": "Standard benchmark sentence normalized: 'rhyth  m' → /ɹ ɪ d̪ ə m/.",
+    },
+    "E3_split_m": {
+        "text": "The rhyth  m of the orchestra changed unexpectedly.",
+        "phonemes": (
+            "{d̪ ə ɹ ɪ d̪ @sp ɛ m ɒ ʋ d̪ ə ɒː k ə s ʈ ɹ ə "
+            "tʃ eː n dʒ ɖ ə n ɛ k s p ɛ k ʈ ɪ ɖ l i}"
+        ),
+        "description": "Verbatim whitespace split: intra-word anomaly ('rhyth  m') with pause token @sp.",
     },
     "E4": {
         "text": (

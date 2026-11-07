@@ -8,6 +8,7 @@ scipy>=1.10.0
 librosa>=0.10.0
 soundfile>=0.12.1
 tgt>=1.4.4
+praatio>=6.0.0
 pyworld>=0.3.4
 
 # Text Processing, G2P & Phonemization

@@ -439,5 +439,9 @@ def extract_features():
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Stage D: Acoustic Feature Extraction and FastSpeech 2 Dataset Preparation for Telugu TTS")
+    parser.add_argument("--config", type=str, default=os.path.join(SCRIPT_DIR, "config.yaml"), help="Path to config.yaml")
+    args = parser.parse_args()
     extract_features()
 
