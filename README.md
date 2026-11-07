@@ -279,14 +279,14 @@ python Telugu/inference.py --config Telugu/config.yaml --test_all
 ```
 
 ### 9.2. Synthesizing Custom Sentences (CLI)
-Synthesize arbitrary raw text directly from the terminal with duration calibration ($d_{\text{control}} = 1.25$):
+Synthesize arbitrary raw text directly from the terminal:
 
 #### English Custom Text Synthesis:
 ```bash
-# Custom English synthesis with calibrated duration control and reference speaker 27
+# Custom English synthesis with reference speaker 27
 python English/inference.py --config English/config.yaml \
     --text "Good morning to all, how are you?" \
-    --duration_control 1.25 --speaker_id 27 --output_wav sample_en.wav
+    --speaker_id 27 --output_wav sample_en.wav
 ```
 
 #### Telugu Custom Text Synthesis:
@@ -294,7 +294,7 @@ python English/inference.py --config English/config.yaml \
 # Custom Telugu synthesis from text string or file
 python Telugu/inference.py --config Telugu/config.yaml \
     --text "నమస్కారం, మీరు ఎలా ఉన్నారు?" \
-    --duration_control 1.25 --speaker_id 0 --output_wav sample_te.wav
+    --speaker_id 0 --output_wav sample_te.wav
 ```
 
 ### 9.3. Speaker Selection & Multi-Speaker Architecture
